@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>God Link Agency | Contact</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">God Link <strong>Agency</strong></a>
+        <button class="nav-toggle" type="button" aria-label="Toggle navigation">☰</button>
+        <div class="nav-links">
+          <a href="index.html">Home</a>
+          <a href="listings.html">Properties</a>
+          <a href="contact.html">Contact</a>
+          <a class="btn btn-primary" href="listings.html">Browse listings</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero-section">
+        <div class="hero-copy">
+          <div class="eyebrow">Let’s arrange a viewing</div>
+          <h1>We’ll help you find the right property, <span>without the pressure</span>.</h1>
+          <p>Share a few details and we’ll get in touch with available times, guidance, and the best next step.</p>
+        </div>
+        <div class="contact-card">
+          <form>
+            <div class="form-group">
+              <label for="name">Full name</label>
+              <input id="name" type="text" placeholder="Kwame Mensah" />
+            </div>
+            <div class="form-group">
+              <label for="phone">Phone number</label>
+              <input id="phone" type="tel" placeholder="+233 20 000 0000" />
+            </div>
+            <div class="form-group">
+              <label for="email">Email address</label>
+              <input id="email" type="email" placeholder="you@example.com" />
+            </div>
+            <div class="form-group">
+              <label for="message">Message</label>
+              <textarea id="message" placeholder="I’m interested in a 3-bedroom family home in Accra."></textarea>
+            </div>
+            <button class="btn btn-primary" type="submit">Send enquiry</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div>
+          <strong>God Link Agency</strong>
+          <p>Premium property sales across Ghana.</p>
+        </div>
+        <div>
+          <p>info@godlinkagency.com</p>
+          <p>+233 20 000 0000</p>
+        </div>
+      </div>
+    </footer>
+  <script src="content-template.js"></script>
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const content = window.siteContent || {};
+      const heading = document.querySelector('.hero-copy h1');
+      const copy = document.querySelector('.hero-copy p');
+      const footerText = document.querySelector('.site-footer strong');
+      if (heading) heading.textContent = content.contact?.heading || heading.textContent;
+      if (copy) copy.textContent = content.contact?.description || copy.textContent;
+      if (footerText) footerText.textContent = content.siteName || footerText.textContent;
+    });
+  </script>
+  </body>
+</html>
