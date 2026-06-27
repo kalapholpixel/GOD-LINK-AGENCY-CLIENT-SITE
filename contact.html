@@ -68,16 +68,5 @@
     </footer>
   <script src="content-template.js"></script>
   <script src="app.js"></script>
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const content = window.siteContent || {};
-      const heading = document.querySelector('.hero-copy h1');
-      const copy = document.querySelector('.hero-copy p');
-      const footerText = document.querySelector('.site-footer strong');
-      if (heading) heading.textContent = content.contact?.heading || heading.textContent;
-      if (copy) copy.textContent = content.contact?.description || copy.textContent;
-      if (footerText) footerText.textContent = content.siteName || footerText.textContent;
-    });
-  </script>
   </body>
 </html>

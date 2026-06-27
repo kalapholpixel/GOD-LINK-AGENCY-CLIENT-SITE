@@ -173,6 +173,9 @@ function renderTheme() {
   if (!theme) return;
   const root = document.documentElement;
   const aliases = {
+    'ink-2': theme.ink2,
+    'paper-2': theme.paper2,
+    'paper-3': theme.paper3,
     gold: theme.primary,
     'gold-soft': theme.primarySoft,
     green: theme.success,
@@ -204,14 +207,29 @@ function renderLogo() {
   `;
 }
 
+function renderFooter() {
+  const content = window.siteContent || {};
+  const footerBrand = document.querySelector('.site-footer strong');
+  const footerNote = document.querySelector('.site-footer .footer-inner > div:first-child p');
+  const footerEmail = document.querySelector('.site-footer .footer-inner > div:last-child p:nth-of-type(1)');
+  const footerPhone = document.querySelector('.site-footer .footer-inner > div:last-child p:nth-of-type(2)');
+
+  if (footerBrand) footerBrand.textContent = content.siteName || footerBrand.textContent;
+  if (footerNote) footerNote.textContent = content.footer?.note || footerNote.textContent;
+  if (footerEmail) footerEmail.textContent = content.footer?.email || footerEmail.textContent;
+  if (footerPhone) footerPhone.textContent = content.footer?.phone || footerPhone.textContent;
+}
+
 function renderHomePageContent() {
   const content = window.siteContent || {};
+  const heroCard = document.querySelector('.hero-card');
+  if (!heroCard) return;
+
   const heroTitle = document.querySelector('.hero-copy h1');
   const heroDesc = document.querySelector('.hero-copy p');
   const heroEyebrow = document.querySelector('.eyebrow');
   const statPills = document.querySelectorAll('.stat-pill');
   const reasons = document.querySelector('.feature-grid');
-  const heroCard = document.querySelector('.hero-card');
 
   if (heroTitle) heroTitle.innerHTML = content.hero?.title?.replace('the right next step', '<span>the right next step</span>') || heroTitle.innerHTML;
   if (heroDesc) heroDesc.textContent = content.hero?.description || heroDesc.textContent;
@@ -226,15 +244,27 @@ function renderHomePageContent() {
       </article>
     `).join('');
   }
-  if (heroCard) {
-    heroCard.innerHTML = `
+  heroCard.innerHTML = `
       <img src="${content.hero?.image || ''}" alt="Featured property" />
       <div class="hero-card-body">
         <h3>${content.hero?.highlightTitle || 'What makes us different'}</h3>
         <p>${content.hero?.highlightCopy || 'A calm, spacious residence in East Legon with a garden, modern kitchen, and excellent security.'}</p>
       </div>
     `;
-  }
+}
+
+function renderContactPageContent() {
+  const content = window.siteContent || {};
+  const contactCard = document.querySelector('.contact-card');
+  if (!contactCard) return;
+
+  const heroTitle = document.querySelector('.hero-copy h1');
+  const heroDesc = document.querySelector('.hero-copy p');
+  const heroEyebrow = document.querySelector('.eyebrow');
+
+  if (heroEyebrow) heroEyebrow.textContent = content.contact?.heading || heroEyebrow.textContent;
+  if (heroTitle) heroTitle.textContent = content.contact?.heading || heroTitle.textContent;
+  if (heroDesc) heroDesc.textContent = content.contact?.description || heroDesc.textContent;
 }
 
 function initMobileMenu() {
@@ -274,7 +304,9 @@ function initMobileMenu() {
 window.addEventListener('DOMContentLoaded', () => {
   renderTheme();
   renderLogo();
+  renderFooter();
   renderHomePageContent();
+  renderContactPageContent();
   renderFeaturedProperties();
   renderFilters();
   renderListings();
