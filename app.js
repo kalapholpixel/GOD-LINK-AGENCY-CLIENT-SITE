@@ -211,13 +211,42 @@ function renderFooter() {
   const content = window.siteContent || {};
   const footerBrand = document.querySelector('.site-footer strong');
   const footerNote = document.querySelector('.site-footer .footer-inner > div:first-child p');
+  const footerCredit = document.querySelector('.site-footer .footer-credit');
   const footerEmail = document.querySelector('.site-footer .footer-inner > div:last-child p:nth-of-type(1)');
   const footerPhone = document.querySelector('.site-footer .footer-inner > div:last-child p:nth-of-type(2)');
 
   if (footerBrand) footerBrand.textContent = content.siteName || footerBrand.textContent;
   if (footerNote) footerNote.textContent = content.footer?.note || footerNote.textContent;
+  if (footerCredit) footerCredit.textContent = content.footer?.credit || footerCredit.textContent;
   if (footerEmail) footerEmail.textContent = content.footer?.email || footerEmail.textContent;
   if (footerPhone) footerPhone.textContent = content.footer?.phone || footerPhone.textContent;
+}
+
+function renderPageMeta() {
+  const content = window.siteContent || {};
+  const pathname = window.location.pathname.split('/').pop() || 'index.html';
+  const pageKey = pathname === 'listings.html' ? 'listings' : pathname === 'contact.html' ? 'contact' : pathname === 'property.html' ? 'property' : 'home';
+  const meta = content.pageMeta?.[pageKey] || {};
+
+  document.title = `${content.siteName || 'God Link Agency'}${meta.title ? ` | ${meta.title}` : ''}`;
+
+  let descriptionTag = document.querySelector('meta[name="description"]');
+  if (!descriptionTag) {
+    descriptionTag = document.createElement('meta');
+    descriptionTag.setAttribute('name', 'description');
+    document.head.appendChild(descriptionTag);
+  }
+
+  descriptionTag.setAttribute('content', meta.description || content.siteTagline || '');
+}
+
+function renderListingsPageContent() {
+  const content = window.siteContent || {};
+  const title = document.querySelector('.page-title h1');
+  const description = document.querySelector('.page-title p');
+
+  if (title) title.textContent = content.pageMeta?.listings?.title || title.textContent;
+  if (description) description.textContent = content.pageMeta?.listings?.description || content.siteTagline || description.textContent;
 }
 
 function renderHomePageContent() {
@@ -232,8 +261,8 @@ function renderHomePageContent() {
   const reasons = document.querySelector('.feature-grid');
 
   if (heroTitle) heroTitle.innerHTML = content.hero?.title?.replace('the right next step', '<span>the right next step</span>') || heroTitle.innerHTML;
-  if (heroDesc) heroDesc.textContent = content.hero?.description || heroDesc.textContent;
-  if (heroEyebrow) heroEyebrow.textContent = content.hero?.eyebrow || heroEyebrow.textContent;
+  if (heroDesc) heroDesc.textContent = content.hero?.description || content.siteTagline || heroDesc.textContent;
+  if (heroEyebrow) heroEyebrow.textContent = content.hero?.eyebrow || content.siteTagline || heroEyebrow.textContent;
   if (statPills.length) statPills.forEach((pill, index) => { pill.textContent = content.hero?.stats?.[index] || pill.textContent; });
   if (reasons) {
     reasons.innerHTML = (content.reasons || []).map((item) => `
@@ -302,10 +331,12 @@ function initMobileMenu() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  renderPageMeta();
   renderTheme();
   renderLogo();
   renderFooter();
   renderHomePageContent();
+  renderListingsPageContent();
   renderContactPageContent();
   renderFeaturedProperties();
   renderFilters();

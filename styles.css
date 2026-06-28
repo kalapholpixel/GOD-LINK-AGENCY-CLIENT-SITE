@@ -310,6 +310,7 @@ input, textarea { width: 100%; border: 1px solid var(--paper-3); border-radius: 
 textarea { min-height: 110px; resize: vertical; }
 .site-footer { border-top: 1px solid var(--paper-3); padding: 1.4rem 1.25rem 2rem; margin-top: 2rem; color: var(--ink-2); }
 .site-footer .footer-inner { max-width: 1180px; margin: 0 auto; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.site-footer .footer-credit { font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); opacity: 0.8; margin-top: 0.25rem; }
 
 @media (max-width: 800px) {
   .hero-section, .detail-layout { grid-template-columns: 1fr; }

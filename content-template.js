@@ -1,6 +1,24 @@
 window.siteContent = {
   siteName: 'God Link Agency',
   siteTagline: 'Premium property sales across Ghana',
+  pageMeta: {
+    home: {
+      title: 'Premium Property Sales',
+      description: 'Premium property sales across Ghana'
+    },
+    listings: {
+      title: 'Properties',
+      description: 'Explore homes, commercial spaces, and land opportunities that are ready for viewing and investment.'
+    },
+    contact: {
+      title: 'Contact',
+      description: 'Share a few details and we’ll get in touch with available times, guidance, and the best next step.'
+    },
+    property: {
+      title: 'Property Details',
+      description: 'View full details, photos, and next steps for this property.'
+    }
+  },
   logo: {
     src: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=256&q=80',
     alt: 'God Link Agency logo'
@@ -27,7 +45,7 @@ window.siteContent = {
     title: 'Find a home, office, or land investment that feels like the right next step.',
     description: 'We curate premium properties with a focus on location, quality, and long-term value so buying or investing feels calm and confident.',
     stats: ['8+ active listings', '3 property types', '5+ years of trust'],
-    image: 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=1200&q=80',
+    image: 'images/WhatsApp Image 2026-06-27 at 11.49.13 AM (2).jpeg',
     highlightTitle: 'Featured viewing this week',
     highlightCopy: 'A calm, spacious residence in East Legon with a garden, modern kitchen, and excellent security.'
   },
@@ -54,8 +72,9 @@ window.siteContent = {
   },
   footer: {
     email: 'info@godlinkagency.com',
-    phone: '+233 20 000 0000',
-    note: 'Premium property sales across Ghana.'
+    phone: '+233 24 342 8752',
+    note: 'Premium property sales across Ghana.',
+    credit: 'Created by KL STUDIOS'
   },
   propertyCategories: [
     { value: 'All', label: 'All' },
@@ -68,22 +87,30 @@ window.siteContent = {
   properties: [
     {
       id: 1,
-      image: 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80',
+      image: 'images/1.jpeg',
       gallery: [
-        'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=1200&q=80'
+        'images/WhatsApp Image 2026-06-27 at 11.49.08 AM (1).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.08 AM.jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.09 AM (1).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.09 AM (2).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.10 AM (2).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.10 AM.jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.11 AM (2).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.11 AM.jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.15 AM (1).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.15 AM (2).jpeg',
+        'images/WhatsApp Image 2026-06-27 at 11.49.16 AM (2).jpeg'
       ],
       type: 'Residential',
-      title: '3-Bedroom Family Home',
-      location: 'East Legon, Accra',
-      price: '$125,000',
+      title: '3-bedroom apartment',
+      location: 'Airport',
+      price: '$2,000/mo',
       status: 'Available',
       beds: 3,
       baths: 2,
-      area: '180 sqm',
-      parking: '2 cars',
-      desc: 'A polished family home in a gated estate with a garden, modern kitchen, and security throughout.',
+      area: '',
+      parking: '',
+      desc: 'A polished apartment in a gated estate with a garden, modern kitchen, and security throughout.',
       features: ['Gated community', '24/7 security', 'Backup generator', 'Solar-ready']
     },
     {
