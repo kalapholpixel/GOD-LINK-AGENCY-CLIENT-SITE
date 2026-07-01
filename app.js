@@ -1,5 +1,212 @@
-const content = window.siteContent || { properties: [] };
-const properties = content.properties || [];
+const DEFAULT_CONTENT = window.siteContent || { properties: [] };
+
+const ADMIN_CONTENT_STORAGE_KEYS = [
+  'godLinkSiteContent',
+  'godLinkAdminContent',
+  'siteContent',
+  'adminSiteContent'
+];
+
+const ADMIN_PROPERTIES_STORAGE_KEYS = [
+  'godLinkProperties',
+  'godLinkListings',
+  'properties',
+  'listings'
+];
+
+const ENQUIRY_EMAIL = 'godlinkagency@gmail.com';
+
+const state = {
+  content: { ...DEFAULT_CONTENT },
+  properties: []
+};
+
+function getContent() {
+  return state.content || {};
+}
+
+function getProperties() {
+  return state.properties || [];
+}
+
+function parseStoredJson(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn('Ignoring invalid JSON from storage.', error);
+    return null;
+  }
+}
+
+function readStorageValue(keys) {
+  for (const key of keys) {
+    const fromLocal = parseStoredJson(window.localStorage?.getItem(key));
+    if (fromLocal) return fromLocal;
+    const fromSession = parseStoredJson(window.sessionStorage?.getItem(key));
+    if (fromSession) return fromSession;
+  }
+  return null;
+}
+
+function toArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeProperty(property, index) {
+  const fallbackId = index + 1;
+  const image = property?.image || toArray(property?.gallery)[0] || '';
+  const features = toArray(property?.features);
+
+  return {
+    id: property?.id ?? fallbackId,
+    image,
+    gallery: toArray(property?.gallery).length ? toArray(property?.gallery) : (image ? [image] : []),
+    type: property?.type || 'Residential',
+    title: property?.title || 'Property listing',
+    location: property?.location || 'Location unavailable',
+    price: property?.price || 'Price on request',
+    status: property?.status || 'Available',
+    beds: property?.beds ?? null,
+    baths: property?.baths ?? null,
+    area: property?.area || '',
+    parking: property?.parking || '',
+    desc: property?.desc || 'Details will be shared during viewing.',
+    features: features.length ? features : ['Details shared on request']
+  };
+}
+
+function extractContentPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.siteContent && typeof payload.siteContent === 'object') return payload.siteContent;
+  if (payload.data && typeof payload.data === 'object') return payload.data;
+  return payload;
+}
+
+function getAdminApiUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const config = window.siteContentConfig || {};
+  return (
+    params.get('adminDataUrl')
+    || config.adminDataUrl
+    || window.localStorage?.getItem('godLinkAdminDataUrl')
+    || window.sessionStorage?.getItem('godLinkAdminDataUrl')
+    || ''
+  );
+}
+
+async function loadAdminContentFromApi() {
+  const url = getAdminApiUrl();
+  if (!url) return null;
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      console.warn(`Admin data request failed with status ${response.status}.`);
+      return null;
+    }
+
+    const payload = await response.json();
+    return extractContentPayload(payload);
+  } catch (error) {
+    console.warn('Unable to fetch admin content. Falling back to local data.', error);
+    return null;
+  }
+}
+
+function loadAdminContentFromStorage() {
+  const contentPayload = readStorageValue(ADMIN_CONTENT_STORAGE_KEYS);
+  const propertiesPayload = readStorageValue(ADMIN_PROPERTIES_STORAGE_KEYS);
+
+  if (!contentPayload && !propertiesPayload) return null;
+
+  const extractedContent = extractContentPayload(contentPayload) || {};
+  const extractedProperties = toArray(propertiesPayload?.properties || propertiesPayload);
+
+  if (!toArray(extractedContent.properties).length && extractedProperties.length) {
+    extractedContent.properties = extractedProperties;
+  }
+
+  return extractedContent;
+}
+
+function syncAppState() {
+  const safeContent = state.content && typeof state.content === 'object' ? state.content : {};
+  const normalized = toArray(safeContent.properties).map(normalizeProperty);
+
+  state.content = {
+    ...DEFAULT_CONTENT,
+    ...safeContent,
+    properties: normalized
+  };
+  state.properties = normalized;
+
+  window.siteContent = state.content;
+}
+
+function setAppContent(adminContent) {
+  if (adminContent && typeof adminContent === 'object') {
+    state.content = {
+      ...DEFAULT_CONTENT,
+      ...extractContentPayload(adminContent)
+    };
+  } else {
+    state.content = { ...DEFAULT_CONTENT };
+  }
+
+  syncAppState();
+}
+
+async function bootstrapContent() {
+  const apiContent = await loadAdminContentFromApi();
+  const storageContent = loadAdminContentFromStorage();
+  setAppContent(apiContent || storageContent || DEFAULT_CONTENT);
+}
+
+function applyAdminContentUpdate(payload) {
+  const incoming = extractContentPayload(payload);
+  if (!incoming || typeof incoming !== 'object') return;
+
+  setAppContent({
+    ...getContent(),
+    ...incoming
+  });
+
+  renderAll();
+}
+
+function initAdminContentSync() {
+  window.addEventListener('storage', (event) => {
+    if (!event.key) return;
+    if (!ADMIN_CONTENT_STORAGE_KEYS.includes(event.key) && !ADMIN_PROPERTIES_STORAGE_KEYS.includes(event.key)) return;
+
+    const latest = loadAdminContentFromStorage();
+    if (latest) applyAdminContentUpdate(latest);
+  });
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type !== 'GOD_LINK_SITE_CONTENT_UPDATED') return;
+
+    applyAdminContentUpdate(data.payload || data.siteContent);
+  });
+
+  if (window.BroadcastChannel) {
+    const channel = new BroadcastChannel('god-link-admin');
+    channel.addEventListener('message', (event) => {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type !== 'site-content-updated') return;
+      applyAdminContentUpdate(data.payload || data.siteContent);
+    });
+  }
+}
 
 function createCard(property) {
   return `
@@ -21,6 +228,7 @@ function createCard(property) {
 function renderFeaturedProperties() {
   const container = document.getElementById('featured-grid');
   if (!container) return;
+  const properties = getProperties();
   container.innerHTML = properties.slice(0, 3).map(createCard).join('');
 }
 
@@ -30,6 +238,7 @@ function renderListings() {
   if (!container) return;
 
   const filter = document.querySelector('.filter-btn.active')?.dataset.filter || 'All';
+  const properties = getProperties();
   const filtered = filter === 'All' ? properties : properties.filter((item) => item.type === filter);
   container.innerHTML = filtered.map(createCard).join('');
   if (count) count.textContent = `${filtered.length} listing${filtered.length === 1 ? '' : 's'}`;
@@ -39,7 +248,7 @@ function renderFilters() {
   const container = document.getElementById('filter-bar');
   if (!container) return;
 
-  const categories = window.siteContent?.propertyCategories || [
+  const categories = getContent().propertyCategories || [
     { value: 'All', label: 'All' },
     { value: 'Residential', label: 'Residential' },
     { value: 'Commercial', label: 'Commercial' },
@@ -64,6 +273,7 @@ function renderPropertyPage() {
   if (!container) return;
 
   const params = new URLSearchParams(window.location.search);
+  const properties = getProperties();
   const selected = properties.find((item) => String(item.id) === params.get('id'));
 
   if (!selected) {
@@ -102,11 +312,11 @@ function renderPropertyPage() {
         <div class="specs">
           ${selected.beds ? `<span class="spec-chip">${selected.beds} beds</span>` : ''}
           ${selected.baths ? `<span class="spec-chip">${selected.baths} baths</span>` : ''}
-          <span class="spec-chip">${selected.area}</span>
+          ${selected.area ? `<span class="spec-chip">${selected.area}</span>` : ''}
           ${selected.parking ? `<span class="spec-chip">${selected.parking}</span>` : ''}
         </div>
         <div class="section-title">Highlights</div>
-        <ul>${selected.features.map((feature) => `<li>${feature}</li>`).join('')}</ul>
+        <ul>${(selected.features || []).map((feature) => `<li>${feature}</li>`).join('')}</ul>
       </div>
     </div>
     <aside class="detail-card checkout-card">
@@ -169,7 +379,7 @@ function initGallery() {
 }
 
 function renderTheme() {
-  const theme = window.siteContent?.theme;
+  const theme = getContent().theme;
   if (!theme) return;
   const root = document.documentElement;
   const aliases = {
@@ -197,7 +407,7 @@ function renderTheme() {
 }
 
 function renderLogo() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const brand = document.querySelector('.brand');
   if (!brand || !content.logo?.src) return;
 
@@ -208,7 +418,7 @@ function renderLogo() {
 }
 
 function renderFooter() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const footerBrand = document.querySelector('.site-footer strong');
   const footerNote = document.querySelector('.site-footer .footer-inner > div:first-child p');
   const footerCredit = document.querySelector('.site-footer .footer-credit');
@@ -223,7 +433,7 @@ function renderFooter() {
 }
 
 function renderPageMeta() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const pathname = window.location.pathname.split('/').pop() || 'index.html';
   const pageKey = pathname === 'listings.html' ? 'listings' : pathname === 'contact.html' ? 'contact' : pathname === 'property.html' ? 'property' : 'home';
   const meta = content.pageMeta?.[pageKey] || {};
@@ -241,7 +451,7 @@ function renderPageMeta() {
 }
 
 function renderListingsPageContent() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const title = document.querySelector('.page-title h1');
   const description = document.querySelector('.page-title p');
 
@@ -250,7 +460,7 @@ function renderListingsPageContent() {
 }
 
 function renderHomePageContent() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const heroCard = document.querySelector('.hero-card');
   if (!heroCard) return;
 
@@ -283,7 +493,7 @@ function renderHomePageContent() {
 }
 
 function renderContactPageContent() {
-  const content = window.siteContent || {};
+  const content = getContent();
   const contactCard = document.querySelector('.contact-card');
   if (!contactCard) return;
 
@@ -330,7 +540,133 @@ function initMobileMenu() {
   });
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+function pushEnquiryToLocalQueue(payload) {
+  const key = 'godLinkEnquiries';
+  const existing = parseStoredJson(window.localStorage?.getItem(key));
+  const queue = Array.isArray(existing) ? existing : [];
+  queue.push(payload);
+  window.localStorage?.setItem(key, JSON.stringify(queue));
+}
+
+function getEnquiryEndpoint() {
+  const params = new URLSearchParams(window.location.search);
+  const config = window.siteContentConfig || {};
+  return (
+    params.get('enquiryEndpoint')
+    || config.enquiryEndpoint
+    || window.localStorage?.getItem('godLinkEnquiryEndpoint')
+    || window.sessionStorage?.getItem('godLinkEnquiryEndpoint')
+    || ''
+  );
+}
+
+function buildEnquiryMailtoLink(payload) {
+  const subject = `Property enquiry from ${payload.name}`;
+  const body = [
+    'Hello God Link Agency,',
+    '',
+    'A new enquiry was submitted with the following details:',
+    `Name: ${payload.name}`,
+    `Phone: ${payload.phone}`,
+    `Email: ${payload.email}`,
+    '',
+    'Message:',
+    payload.message,
+    '',
+    `Submitted at: ${payload.createdAt}`,
+    `Page: ${payload.page}`
+  ].join('\n');
+
+  return `mailto:${ENQUIRY_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function openEnquiryMailClient(payload) {
+  const mailtoLink = buildEnquiryMailtoLink(payload);
+  window.location.href = mailtoLink;
+}
+
+async function submitEnquiry(payload) {
+  openEnquiryMailClient(payload);
+
+  const endpoint = getEnquiryEndpoint();
+  if (!endpoint) {
+    pushEnquiryToLocalQueue(payload);
+    return { ok: true, queued: true };
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Enquiry request failed with status ${response.status}`);
+  }
+
+  return { ok: true, queued: false };
+}
+
+function initContactForm() {
+  const form = document.getElementById('contact-form');
+  const feedback = document.getElementById('contact-feedback');
+  if (!form || !feedback) return;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  const setFeedback = (message, type) => {
+    feedback.textContent = message;
+    feedback.className = `form-feedback ${type}`;
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(form);
+    const payload = {
+      name: String(formData.get('name') || '').trim(),
+      phone: String(formData.get('phone') || '').trim(),
+      email: String(formData.get('email') || '').trim(),
+      message: String(formData.get('message') || '').trim(),
+      createdAt: new Date().toISOString(),
+      page: window.location.href
+    };
+
+    if (!payload.name || !payload.phone || !payload.email || !payload.message) {
+      setFeedback('Please fill in all required fields before submitting.', 'error');
+      return;
+    }
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Sending...';
+    }
+
+    try {
+      const result = await submitEnquiry(payload);
+      if (result.queued) {
+        setFeedback('Thank you. Your enquiry has been received and we will contact you shortly.', 'success');
+      } else {
+        setFeedback('Thank you. Your enquiry has been sent successfully.', 'success');
+      }
+      form.reset();
+    } catch (error) {
+      console.error(error);
+      pushEnquiryToLocalQueue(payload);
+      setFeedback('We are processing your enquiry. If you do not hear back soon, please contact us directly.', 'warning');
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Send enquiry';
+      }
+    }
+  });
+}
+
+function renderAll() {
   renderPageMeta();
   renderTheme();
   renderLogo();
@@ -342,5 +678,12 @@ window.addEventListener('DOMContentLoaded', () => {
   renderFilters();
   renderListings();
   renderPropertyPage();
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await bootstrapContent();
+  initAdminContentSync();
+  renderAll();
+  initContactForm();
   initMobileMenu();
 });
