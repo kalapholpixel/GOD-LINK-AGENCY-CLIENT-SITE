@@ -1,106 +1,224 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title>God Link Agency | Premium Property Sales</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <header class="site-header">
-      <nav class="navbar">
-        <a class="brand" href="index.html">God Link <strong>Agency</strong></a>
-        <button class="nav-toggle" type="button" aria-label="Toggle navigation">☰</button>
-        <div class="nav-links">
-          <a href="index.html">Home</a>
-          <a href="listings.html">Properties</a>
-          <a href="contact.html">Contact</a>
-          <a class="btn btn-primary" href="listings.html">Explore listings</a>
-        </div>
-      </nav>
-    </header>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KL STUDIOS | Premium Creative Solutions For Your Brand</title>
+    <meta name="description" content="KL STUDIOS delivers outstanding Graphic Design, Photo Editing, Video Editing, Branding, and Website Development. Premium quality, fast delivery, and creative solutions.">
+    <meta name="keywords" content="Graphic Design, Photo Editing, Video Editing, Branding, Website Development, Creative Agency, Portfolio, KL Studios">
+    <meta name="author" content="KL Studios">
+    <meta name="theme-color" content="#0a0a0a">
+    <meta property="og:title" content="KL STUDIOS | Premium Creative Solutions">
+    <meta property="og:description" content="Elevate your brand with premium graphic design, video editing, branding, and responsive web development.">
+    <meta property="og:image" content="assets/logo.png">
+    <link rel="apple-touch-icon" href="assets/logo.png">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="home">
 
-    <main class="page-shell">
-      <section class="hero-section">
-        <div class="hero-copy">
-          <div class="eyebrow">Premium real estate in Ghana</div>
-          <h1>Find a home, office, or land investment that feels like <span>the right next step</span>.</h1>
-          <p>We curate premium properties with a focus on location, quality, and long-term value so buying or investing feels calm and confident.</p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="listings.html">Browse properties</a>
-            <a class="btn btn-outline" href="contact.html">Book a viewing</a>
-          </div>
-          <div class="hero-stats">
-            <div class="stat-pill">8+ active listings</div>
-            <div class="stat-pill">3 property types</div>
-            <div class="stat-pill">5+ years of trust</div>
-          </div>
-        </div>
-        <div class="hero-card">
-          <h3>What makes us different</h3>
-          <ul>
-            <li>Carefully selected properties in strong locations</li>
-            <li>Clear guidance from start to finish</li>
-            <li>Flexible viewings and fast follow-up</li>
-            <li>Trusted support for buyers and investors</li>
-          </ul>
-        </div>
-      </section>
+    <header id="site-header"></header>
 
-      <section class="section">
-        <div class="section-heading">
-          <h2>Why clients choose us</h2>
-        </div>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <div class="icon">🏘️</div>
-            <h3>Curated inventory</h3>
-            <p>We show only properties that genuinely match the client’s goals, budget, and lifestyle.</p>
-          </article>
-          <article class="feature-card">
-            <div class="icon">🧭</div>
-            <h3>Local insight</h3>
-            <p>Our team understands the neighborhoods, amenities, and investment potential that matter.</p>
-          </article>
-          <article class="feature-card">
-            <div class="icon">🤝</div>
-            <h3>Personal support</h3>
-            <p>From first enquiry to closing, we make the experience clear and easy to navigate.</p>
-          </article>
-        </div>
-      </section>
+    <main class="site-main site-main-home" id="main-content">
+        <section class="hero" id="home">
+            <canvas id="hero-particles"></canvas>
+            <div class="hero-glow-overlay-1"></div>
+            <div class="hero-glow-overlay-2"></div>
 
-      <section class="section">
-        <div class="section-heading">
-          <h2>Featured properties</h2>
-          <a class="text-link" href="listings.html">See all listings</a>
-        </div>
-        <div id="featured-grid" class="card-grid"></div>
-      </section>
+            <div class="hero-container">
+                <div class="hero-visual-card">
+                    <div class="logo-glow-wrapper">
+                        <img src="assets/logo.png" alt="KL Studios — Design, Create, Inspire" class="hero-logo-img">
+                    </div>
+                </div>
+
+                <div class="hero-content">
+                    <div class="badge">CREATIVE SOLUTIONS FOR YOUR BRAND</div>
+                    <h1 class="hero-title">WE DESIGN BRANDS THAT <span class="text-gradient">INSPIRE</span></h1>
+                    <p class="hero-subtitle">
+                        Transforming your vision into digital masterpieces. We specialize in high-end graphic design, cinematic video editing, premium branding, and modern web development.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="portfolio.html" class="btn btn-primary" id="hero-cta-work">Explore Our Work <i class="fa-solid fa-arrow-right"></i></a>
+                        <a href="estimator.html" class="btn btn-outline" id="hero-cta-estimator">Cost Calculator</a>
+                    </div>
+                    <div class="hero-trust-row">
+                        <span><i class="fa-solid fa-bolt"></i> Fast turnaround</span>
+                        <span><i class="fa-solid fa-shield-halved"></i> Quality guaranteed</span>
+                        <span><i class="fa-solid fa-clock"></i> 2hr response time</span>
+                    </div>
+                </div>
+            </div>
+
+            <a href="#stats" class="scroll-indicator" id="scroll-down-btn" aria-label="Scroll to content">
+                <span class="mouse"><span class="wheel"></span></span>
+            </a>
+        </section>
+
+        <section class="stats-bar" id="stats">
+            <div class="section-container stats-bar-inner reveal">
+                <div class="stat-block">
+                    <span class="stat-number">150+</span>
+                    <span class="stat-desc">Projects Delivered</span>
+                </div>
+                <div class="stat-block">
+                    <span class="stat-number">98%</span>
+                    <span class="stat-desc">Client Satisfaction</span>
+                </div>
+                <div class="stat-block">
+                    <span class="stat-number">48hr</span>
+                    <span class="stat-desc">Avg. First Delivery</span>
+                </div>
+                <div class="stat-block">
+                    <span class="stat-number">5+</span>
+                    <span class="stat-desc">Creative Disciplines</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="home-quick-links">
+            <div class="section-container">
+                <div class="section-header text-center reveal">
+                    <span class="section-subtitle">Explore</span>
+                    <h2 class="section-title">What Can We <span class="text-gradient">Create</span> For You?</h2>
+                    <div class="gradient-line"></div>
+                </div>
+                <div class="home-links-grid reveal-stagger">
+                    <a href="services.html" class="home-link-card">
+                        <i class="fa-solid fa-palette"></i>
+                        <h3>Services</h3>
+                        <p>Design, video, branding &amp; web</p>
+                        <span class="card-link-arrow">Learn more <i class="fa-solid fa-arrow-right"></i></span>
+                    </a>
+                    <a href="portfolio.html" class="home-link-card">
+                        <i class="fa-solid fa-images"></i>
+                        <h3>Our Work</h3>
+                        <p>Browse the project gallery</p>
+                        <span class="card-link-arrow">View gallery <i class="fa-solid fa-arrow-right"></i></span>
+                    </a>
+                    <a href="photography.html" class="home-link-card">
+                        <i class="fa-solid fa-camera"></i>
+                        <h3>Photography</h3>
+                        <p>Legacy Studios sessions</p>
+                        <span class="card-link-arrow">Visit studio <i class="fa-solid fa-arrow-right"></i></span>
+                    </a>
+                    <a href="contact.html" class="home-link-card">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <h3>Get In Touch</h3>
+                        <p>Start your next project</p>
+                        <span class="card-link-arrow">Contact us <i class="fa-solid fa-arrow-right"></i></span>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="featured-work">
+            <div class="section-container">
+                <div class="section-header text-center reveal">
+                    <span class="section-subtitle">Portfolio Preview</span>
+                    <h2 class="section-title">Featured <span class="text-gradient">Projects</span></h2>
+                    <div class="gradient-line"></div>
+                </div>
+                <div class="featured-grid reveal-stagger">
+                    <a href="portfolio.html" class="featured-card">
+                        <img src="assets/portfolio/sweet-bite.png" alt="Sweet Bite branding project" loading="lazy">
+                        <div class="featured-card-overlay">
+                            <span class="port-category">Branding</span>
+                            <h3>Sweet Bite Identity</h3>
+                        </div>
+                    </a>
+                    <a href="portfolio.html" class="featured-card">
+                        <img src="assets/portfolio/artwork-cyan.png" alt="Electric cyber realm artwork" loading="lazy">
+                        <div class="featured-card-overlay">
+                            <span class="port-category">Graphic Design</span>
+                            <h3>Electric Cyber-Realm</h3>
+                        </div>
+                    </a>
+                    <a href="portfolio.html" class="featured-card">
+                        <img src="assets/banner.png" alt="KL Studios web platform" loading="lazy">
+                        <div class="featured-card-overlay">
+                            <span class="port-category">Web Development</span>
+                            <h3>KL Studios Platform</h3>
+                        </div>
+                    </a>
+                </div>
+                <div class="section-cta-center reveal">
+                    <a href="portfolio.html" class="btn btn-outline">View Full Portfolio <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </div>
+        </section>
+
+        <section class="process-section">
+            <div class="section-container">
+                <div class="section-header text-center reveal">
+                    <span class="section-subtitle">How We Work</span>
+                    <h2 class="section-title">A Simple, <span class="text-gradient">Proven</span> Process</h2>
+                    <div class="gradient-line"></div>
+                </div>
+                <div class="process-grid reveal-stagger">
+                    <div class="process-step">
+                        <div class="process-num">01</div>
+                        <h3>Discover</h3>
+                        <p>We learn your brand, goals, and audience so every creative decision has purpose.</p>
+                    </div>
+                    <div class="process-step">
+                        <div class="process-num">02</div>
+                        <h3>Design &amp; Build</h3>
+                        <p>Concepts, revisions, and polish — with clear updates at every milestone.</p>
+                    </div>
+                    <div class="process-step">
+                        <div class="process-num">03</div>
+                        <h3>Deliver</h3>
+                        <p>Final assets in the formats you need, ready for print, web, and social.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="testimonials-section">
+            <div class="section-container">
+                <div class="section-header text-center reveal">
+                    <span class="section-subtitle">Client Love</span>
+                    <h2 class="section-title">Trusted by <span class="text-gradient">Creators</span> &amp; Brands</h2>
+                    <div class="gradient-line"></div>
+                </div>
+                <div class="testimonials-grid reveal-stagger">
+                    <blockquote class="testimonial-card">
+                        <div class="testimonial-stars" aria-hidden="true">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p>&ldquo;KL Studios turned our rough ideas into a polished brand that our customers instantly recognize. Fast, professional, and genuinely creative.&rdquo;</p>
+                        <footer><strong>Sweet Bite</strong> — Branding Client</footer>
+                    </blockquote>
+                    <blockquote class="testimonial-card">
+                        <div class="testimonial-stars" aria-hidden="true">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p>&ldquo;The video edits and color grading elevated our content to a whole new level. Our engagement doubled after the first delivery.&rdquo;</p>
+                        <footer><strong>Content Creator</strong> — Video Editing</footer>
+                    </blockquote>
+                    <blockquote class="testimonial-card">
+                        <div class="testimonial-stars" aria-hidden="true">
+                            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                        </div>
+                        <p>&ldquo;From logo to website, everything felt cohesive and premium. The cost calculator made budgeting easy before we even booked a call.&rdquo;</p>
+                        <footer><strong>Startup Founder</strong> — Web &amp; Branding</footer>
+                    </blockquote>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <div>
-          <strong>God Link Agency</strong>
-          <p>Premium property sales across Ghana.</p>
-          <p class="footer-credit">Created by KL STUDIOS</p>
-        </div>
-        <div>
-          <p>info@godlinkagency.com</p>
-          <p>+233 20 000 0000</p>
-        </div>
-      </div>
-    </footer>
+    <footer id="site-footer"></footer>
 
-    <script src="data-loader.js?v=20260628"></script>
-    <script src="content-template.js?v=20260628"></script>
-    <script src="app.js?v=20260628"></script>
-  </body>
+    <script src="js/nav.js"></script>
+    <script src="js/footer.js"></script>
+    <script src="js/site.js"></script>
+    <script src="main.js"></script>
+</body>
 </html>

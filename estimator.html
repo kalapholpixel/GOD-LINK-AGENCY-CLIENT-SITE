@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cost Calculator | KL STUDIOS</title>
+    <meta name="description" content="Use the KL Studios instant project estimator to calculate ballpark pricing and timelines.">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="icon" href="assets/logo.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="estimator"
+    data-hero-title="Instant Project Estimator"
+    data-hero-subtitle="Select services, adjust scale and speed — get a ballpark price and timeline in real time."
+    data-hero-breadcrumb="Cost Calculator">
+
+    <header id="site-header"></header>
+
+    <main class="site-main" id="main-content">
+        <section class="estimator inner-section-tight" id="estimator">
+            <div class="section-container">
+                <div class="section-header text-center reveal">
+                    <span class="section-subtitle">Interactive Tool</span>
+                    <div class="gradient-line"></div>
+                    <p class="section-description">Select your required services and adjust parameters below.</p>
+                </div>
+
+                <div class="estimator-wrapper reveal">
+                    <div class="estimator-config-card">
+                        <div class="estimator-group">
+                            <h4 class="group-title"><span class="step-num">1</span> Select Services Required</h4>
+                            <div class="services-selector-grid">
+                                <div class="service-select-btn" data-service="graphic" data-base="1500">
+                                    <i class="fa-solid fa-palette"></i>
+                                    <span>Graphic Design</span>
+                                </div>
+                                <div class="service-select-btn" data-service="photo" data-base="1200">
+                                    <i class="fa-solid fa-camera"></i>
+                                    <span>Photo Editing</span>
+                                </div>
+                                <div class="service-select-btn" data-service="video" data-base="2500">
+                                    <i class="fa-solid fa-video"></i>
+                                    <span>Video Editing</span>
+                                </div>
+                                <div class="service-select-btn" data-service="branding" data-base="3500">
+                                    <i class="fa-solid fa-bullseye"></i>
+                                    <span>Branding Package</span>
+                                </div>
+                                <div class="service-select-btn" data-service="web" data-base="6000">
+                                    <i class="fa-solid fa-code"></i>
+                                    <span>Web Development</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="estimator-group">
+                            <h4 class="group-title"><span class="step-num">2</span> Adjust Parameters</h4>
+                            <div class="slider-wrapper">
+                                <div class="slider-labels">
+                                    <span class="slider-label-title">Project Scale (Assets / Pages / Duration)</span>
+                                    <span class="slider-value" id="qty-val">1x item</span>
+                                </div>
+                                <input type="range" id="qty-slider" min="1" max="15" value="1" class="custom-slider">
+                            </div>
+                            <div class="slider-wrapper">
+                                <div class="slider-labels">
+                                    <span class="slider-label-title">Delivery Speed</span>
+                                    <span class="slider-value" id="speed-val">Standard Delivery</span>
+                                </div>
+                                <input type="range" id="speed-slider" min="1" max="3" value="1" class="custom-slider">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="estimator-result-card">
+                        <div class="result-glow-line"></div>
+                        <h3>Estimate Summary</h3>
+                        <div class="selected-services-summary" id="selected-services-list">
+                            <p class="empty-list-msg">No services selected yet. Click on services to calculate cost!</p>
+                        </div>
+                        <hr class="estimator-divider">
+                        <div class="estimate-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Estimated Cost</span>
+                                <span class="stat-value text-gradient-orange" id="cost-estimate">฿0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Estimated Timeline</span>
+                                <span class="stat-value text-gradient-cyan" id="timeline-estimate">-- Days</span>
+                            </div>
+                        </div>
+                        <p class="estimate-fineprint">* Ballpark estimate only. Prices may vary depending on exact visual requests, asset complexities, and specific revisions.</p>
+                        <button class="btn btn-primary btn-block" id="btn-apply-estimate">Send This Estimate Inquiry</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="site-footer"></footer>
+    <script src="js/nav.js"></script>
+    <script src="js/footer.js"></script>
+    <script src="js/site.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
