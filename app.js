@@ -15,11 +15,96 @@ const ADMIN_PROPERTIES_STORAGE_KEYS = [
 ];
 
 const ENQUIRY_EMAIL = 'godlinkagency@gmail.com';
+const ENQUIRY_QUEUE_KEY = 'godLinkEnquiries';
+
+const DEFAULT_SITE_CONFIG = {
+  adminDomain: '',
+  adminDataUrl: '',
+  enquiryEndpoint: '',
+  adminApiKey: '',
+  adminAuthToken: '',
+  allowedAdminOrigins: [],
+  syncIntervalMs: 60000,
+  openMailClientOnSubmit: false,
+  requestCredentials: 'omit'
+};
 
 const state = {
   content: { ...DEFAULT_CONTENT },
   properties: []
 };
+
+function getSiteConfig() {
+  return {
+    ...DEFAULT_SITE_CONFIG,
+    ...(window.siteContentConfig || {})
+  };
+}
+
+function sanitizeUrl(url) {
+  return typeof url === 'string' ? url.trim() : '';
+}
+
+function buildAbsoluteUrl(url, fallbackBase) {
+  const safeUrl = sanitizeUrl(url);
+  const safeBase = sanitizeUrl(fallbackBase);
+  if (!safeUrl) return '';
+
+  try {
+    return new URL(safeUrl, safeBase || window.location.origin).toString();
+  } catch (error) {
+    console.warn('Invalid URL in site config.', error);
+    return '';
+  }
+}
+
+function getAdminOrigin() {
+  const config = getSiteConfig();
+  const adminDomain = sanitizeUrl(config.adminDomain);
+  if (!adminDomain) return '';
+
+  try {
+    return new URL(adminDomain).origin;
+  } catch (error) {
+    return '';
+  }
+}
+
+function getAllowedAdminOrigins() {
+  const config = getSiteConfig();
+  const configured = Array.isArray(config.allowedAdminOrigins) ? config.allowedAdminOrigins : [];
+  const explicit = configured
+    .map((origin) => sanitizeUrl(origin))
+    .filter(Boolean);
+  const adminOrigin = getAdminOrigin();
+
+  return adminOrigin && !explicit.includes(adminOrigin)
+    ? [...explicit, adminOrigin]
+    : explicit;
+}
+
+function isAllowedAdminOrigin(origin) {
+  const allowedOrigins = getAllowedAdminOrigins();
+  if (!allowedOrigins.length) return true;
+  return allowedOrigins.includes(origin);
+}
+
+function getAdminRequestHeaders(extraHeaders) {
+  const config = getSiteConfig();
+  const headers = {
+    Accept: 'application/json',
+    ...(extraHeaders || {})
+  };
+
+  if (config.adminApiKey) {
+    headers['x-api-key'] = config.adminApiKey;
+  }
+  if (config.adminAuthToken) {
+    headers.Authorization = `Bearer ${config.adminAuthToken}`;
+  }
+
+  return headers;
+}
 
 function getContent() {
   return state.content || {};
@@ -85,14 +170,66 @@ function extractContentPayload(payload) {
 
 function getAdminApiUrl() {
   const params = new URLSearchParams(window.location.search);
-  const config = window.siteContentConfig || {};
-  return (
+  const config = getSiteConfig();
+  const adminOrigin = getAdminOrigin();
+
+  const rawUrl = (
     params.get('adminDataUrl')
     || config.adminDataUrl
     || window.localStorage?.getItem('godLinkAdminDataUrl')
     || window.sessionStorage?.getItem('godLinkAdminDataUrl')
     || ''
   );
+
+  return buildAbsoluteUrl(rawUrl, adminOrigin);
+}
+
+function getEnquiryEndpoint() {
+  const params = new URLSearchParams(window.location.search);
+  const config = getSiteConfig();
+  const adminOrigin = getAdminOrigin();
+
+  const rawUrl = (
+    params.get('enquiryEndpoint')
+    || config.enquiryEndpoint
+    || window.localStorage?.getItem('godLinkEnquiryEndpoint')
+    || window.sessionStorage?.getItem('godLinkEnquiryEndpoint')
+    || ''
+  );
+
+  return buildAbsoluteUrl(rawUrl, adminOrigin);
+}
+
+function shouldOpenMailClientOnSubmit() {
+  const params = new URLSearchParams(window.location.search);
+  const fromParam = params.get('openMailClientOnSubmit');
+  if (fromParam === 'true') return true;
+  if (fromParam === 'false') return false;
+
+  return Boolean(getSiteConfig().openMailClientOnSubmit);
+}
+
+function getSyncIntervalMs() {
+  const configValue = Number(getSiteConfig().syncIntervalMs);
+  if (!Number.isFinite(configValue) || configValue < 10000) {
+    return 60000;
+  }
+  return configValue;
+}
+
+async function fetchJson(url, options) {
+  const config = getSiteConfig();
+  const response = await fetch(url, {
+    cache: 'no-store',
+    credentials: config.requestCredentials || 'omit',
+    ...(options || {})
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return response.json();
 }
 
 async function loadAdminContentFromApi() {
@@ -100,18 +237,10 @@ async function loadAdminContentFromApi() {
   if (!url) return null;
 
   try {
-    const response = await fetch(url, {
+    const payload = await fetchJson(url, {
       method: 'GET',
-      headers: { Accept: 'application/json' },
-      cache: 'no-store'
+      headers: getAdminRequestHeaders()
     });
-
-    if (!response.ok) {
-      console.warn(`Admin data request failed with status ${response.status}.`);
-      return null;
-    }
-
-    const payload = await response.json();
     return extractContentPayload(payload);
   } catch (error) {
     console.warn('Unable to fetch admin content. Falling back to local data.', error);
@@ -190,6 +319,8 @@ function initAdminContentSync() {
   });
 
   window.addEventListener('message', (event) => {
+    if (!isAllowedAdminOrigin(event.origin)) return;
+
     const data = event.data;
     if (!data || typeof data !== 'object') return;
     if (data.type !== 'GOD_LINK_SITE_CONTENT_UPDATED') return;
@@ -206,6 +337,18 @@ function initAdminContentSync() {
       applyAdminContentUpdate(data.payload || data.siteContent);
     });
   }
+}
+
+function startAdminContentPolling() {
+  const url = getAdminApiUrl();
+  if (!url) return;
+
+  const intervalMs = getSyncIntervalMs();
+  window.setInterval(async () => {
+    const latest = await loadAdminContentFromApi();
+    if (!latest) return;
+    applyAdminContentUpdate(latest);
+  }, intervalMs);
 }
 
 function createCard(property) {
@@ -541,23 +684,23 @@ function initMobileMenu() {
 }
 
 function pushEnquiryToLocalQueue(payload) {
-  const key = 'godLinkEnquiries';
-  const existing = parseStoredJson(window.localStorage?.getItem(key));
-  const queue = Array.isArray(existing) ? existing : [];
-  queue.push(payload);
-  window.localStorage?.setItem(key, JSON.stringify(queue));
+  const currentQueue = getQueuedEnquiries();
+  currentQueue.push({
+    ...payload,
+    queueId: payload.queueId || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    retries: Number(payload.retries || 0),
+    lastAttemptAt: payload.lastAttemptAt || null
+  });
+  saveQueuedEnquiries(currentQueue);
 }
 
-function getEnquiryEndpoint() {
-  const params = new URLSearchParams(window.location.search);
-  const config = window.siteContentConfig || {};
-  return (
-    params.get('enquiryEndpoint')
-    || config.enquiryEndpoint
-    || window.localStorage?.getItem('godLinkEnquiryEndpoint')
-    || window.sessionStorage?.getItem('godLinkEnquiryEndpoint')
-    || ''
-  );
+function getQueuedEnquiries() {
+  const existing = parseStoredJson(window.localStorage?.getItem(ENQUIRY_QUEUE_KEY));
+  return Array.isArray(existing) ? existing : [];
+}
+
+function saveQueuedEnquiries(queue) {
+  window.localStorage?.setItem(ENQUIRY_QUEUE_KEY, JSON.stringify(queue));
 }
 
 function buildEnquiryMailtoLink(payload) {
@@ -585,29 +728,60 @@ function openEnquiryMailClient(payload) {
   window.location.href = mailtoLink;
 }
 
-async function submitEnquiry(payload) {
-  openEnquiryMailClient(payload);
-
+async function sendEnquiryToApi(payload) {
   const endpoint = getEnquiryEndpoint();
-  if (!endpoint) {
-    pushEnquiryToLocalQueue(payload);
-    return { ok: true, queued: true };
-  }
+  if (!endpoint) return { ok: false, queued: true };
 
-  const response = await fetch(endpoint, {
+  await fetchJson(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json'
-    },
+    headers: getAdminRequestHeaders({
+      'Content-Type': 'application/json'
+    }),
     body: JSON.stringify(payload)
   });
 
-  if (!response.ok) {
-    throw new Error(`Enquiry request failed with status ${response.status}`);
+  return { ok: true, queued: false };
+}
+
+async function submitEnquiry(payload) {
+  const shouldOpenMail = shouldOpenMailClientOnSubmit();
+  if (shouldOpenMail) {
+    openEnquiryMailClient(payload);
   }
 
-  return { ok: true, queued: false };
+  try {
+    return await sendEnquiryToApi(payload);
+  } catch (error) {
+    pushEnquiryToLocalQueue({
+      ...payload,
+      retries: Number(payload.retries || 0) + 1,
+      lastAttemptAt: new Date().toISOString()
+    });
+    return { ok: false, queued: true, error };
+  }
+}
+
+async function flushQueuedEnquiries() {
+  const queue = getQueuedEnquiries();
+  if (!queue.length) return;
+
+  const remaining = [];
+  for (const enquiry of queue) {
+    try {
+      const result = await sendEnquiryToApi(enquiry);
+      if (!result.ok) {
+        remaining.push(enquiry);
+      }
+    } catch (error) {
+      remaining.push({
+        ...enquiry,
+        retries: Number(enquiry.retries || 0) + 1,
+        lastAttemptAt: new Date().toISOString()
+      });
+    }
+  }
+
+  saveQueuedEnquiries(remaining);
 }
 
 function initContactForm() {
@@ -647,10 +821,10 @@ function initContactForm() {
 
     try {
       const result = await submitEnquiry(payload);
-      if (result.queued) {
-        setFeedback('Thank you. Your enquiry has been received and we will contact you shortly.', 'success');
-      } else {
+      if (result.ok && !result.queued) {
         setFeedback('Thank you. Your enquiry has been sent successfully.', 'success');
+      } else {
+        setFeedback('Thank you. Your enquiry has been received and we will contact you shortly.', 'success');
       }
       form.reset();
     } catch (error) {
@@ -683,7 +857,13 @@ function renderAll() {
 window.addEventListener('DOMContentLoaded', async () => {
   await bootstrapContent();
   initAdminContentSync();
+  startAdminContentPolling();
   renderAll();
   initContactForm();
   initMobileMenu();
+  await flushQueuedEnquiries();
+});
+
+window.addEventListener('online', () => {
+  flushQueuedEnquiries();
 });
