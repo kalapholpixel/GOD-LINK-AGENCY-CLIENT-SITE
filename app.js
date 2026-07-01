@@ -112,7 +112,7 @@ function renderPropertyPage() {
     <aside class="detail-card checkout-card">
       <div class="price">${selected.price}</div>
       <div class="status ${selected.status === 'Sold' ? 'sold' : 'available'}">${selected.status}</div>
-      <a class="btn btn-primary" href="contact.html">Book a viewing</a>
+      <a class="btn btn-primary" href="contact.html?propertyId=${selected.id}">Book a viewing</a>
     </aside>
   `;
 
@@ -296,6 +296,62 @@ function renderContactPageContent() {
   if (heroDesc) heroDesc.textContent = content.contact?.description || heroDesc.textContent;
 }
 
+function buildPropertyInquiryMessage(property) {
+  if (!property) return '';
+
+  return [
+    'Hello God Link Agency,',
+    '',
+    'I am interested in the following property:',
+    `Property: ${property.title}`,
+    `Type: ${property.type}`,
+    `Location: ${property.location}`,
+    `Price: ${property.price}`,
+    `Description: ${property.desc}`,
+    '',
+    'Please arrange a viewing for me.'
+  ].join('\n');
+}
+
+function initContactForm() {
+  const form = document.querySelector('.contact-card form');
+  if (!form) return;
+
+  const nameInput = document.getElementById('name');
+  const phoneInput = document.getElementById('phone');
+  const emailInput = document.getElementById('email');
+  const messageInput = document.getElementById('message');
+
+  const params = new URLSearchParams(window.location.search);
+  const propertyId = params.get('propertyId');
+  const selectedProperty = properties.find((item) => String(item.id) === propertyId);
+
+  if (messageInput && selectedProperty) {
+    messageInput.value = buildPropertyInquiryMessage(selectedProperty);
+  }
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const name = nameInput?.value?.trim() || '';
+    const phone = phoneInput?.value?.trim() || '';
+    const email = emailInput?.value?.trim() || '';
+    const message = messageInput?.value?.trim() || '';
+
+    const lines = [];
+    if (name) lines.push(`Name: ${name}`);
+    if (phone) lines.push(`Phone: ${phone}`);
+    if (email) lines.push(`Email: ${email}`);
+    if (message) lines.push(`Message:\n${message}`);
+
+    const subject = selectedProperty ? `Viewing enquiry for ${selectedProperty.title}` : 'Property enquiry';
+    const body = lines.join('\n\n');
+    const mailtoLink = `mailto:godlinkagency@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.location.href = mailtoLink;
+  });
+}
+
 function initMobileMenu() {
   const toggle = document.querySelector('.nav-toggle');
   const links = document.querySelector('.nav-links');
@@ -342,5 +398,6 @@ window.addEventListener('DOMContentLoaded', () => {
   renderFilters();
   renderListings();
   renderPropertyPage();
+  initContactForm();
   initMobileMenu();
 });
