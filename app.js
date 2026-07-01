@@ -229,7 +229,32 @@ async function fetchJson(url, options) {
     throw new Error(`Request failed with status ${response.status}`);
   }
 
+  if (response.status === 204) {
+    return {};
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return {};
+  }
+
   return response.json();
+}
+
+function validateIntegrationConfig() {
+  const config = getSiteConfig();
+  const adminUrl = getAdminApiUrl();
+  const enquiryUrl = getEnquiryEndpoint();
+
+  if (!config.adminDomain) {
+    console.warn('Integration warning: adminDomain is not configured in site-config.js');
+  }
+  if (!adminUrl) {
+    console.warn('Integration warning: adminDataUrl is missing; site will fall back to bundled/static content.');
+  }
+  if (!enquiryUrl) {
+    console.warn('Integration warning: enquiryEndpoint is missing; enquiries will be queued locally.');
+  }
 }
 
 async function loadAdminContentFromApi() {
@@ -855,6 +880,7 @@ function renderAll() {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+  validateIntegrationConfig();
   await bootstrapContent();
   initAdminContentSync();
   startAdminContentPolling();
