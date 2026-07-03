@@ -1,4 +1,7 @@
-const DEFAULT_CONTENT = window.siteContent || { properties: [] };
+const DEFAULT_CONTENT = window.siteContent || {};
+
+const DEFAULT_CONTENT_API_URL = 'https://admin-api.godlinkproperties.com/api/data';
+const DEFAULT_EVENTS_URL = 'https://admin-api.godlinkproperties.com/api/events';
 
 const ADMIN_CONTENT_STORAGE_KEYS = [
   'godLinkSiteContent',
@@ -20,11 +23,12 @@ const ENQUIRY_QUEUE_KEY = 'godLinkEnquiries';
 const DEFAULT_SITE_CONFIG = {
   adminDomain: '',
   adminDataUrl: '',
+  adminEventsUrl: '',
   enquiryEndpoint: '',
   adminApiKey: '',
   adminAuthToken: '',
   allowedAdminOrigins: [],
-  syncIntervalMs: 60000,
+  sseReconnectDelayMs: 3000,
   openMailClientOnSubmit: false,
   requestCredentials: 'omit'
 };
@@ -33,6 +37,10 @@ const state = {
   content: { ...DEFAULT_CONTENT },
   properties: []
 };
+
+let contentRefreshPromise = null;
+let eventSource = null;
+let eventReconnectTimer = null;
 
 function getSiteConfig() {
   return {
@@ -168,20 +176,18 @@ function extractContentPayload(payload) {
   return payload;
 }
 
-function getAdminApiUrl() {
+function getContentApiUrl() {
   const params = new URLSearchParams(window.location.search);
   const config = getSiteConfig();
-  const adminOrigin = getAdminOrigin();
 
-  const rawUrl = (
-    params.get('adminDataUrl')
-    || config.adminDataUrl
-    || window.localStorage?.getItem('godLinkAdminDataUrl')
-    || window.sessionStorage?.getItem('godLinkAdminDataUrl')
-    || ''
-  );
+  return sanitizeUrl(params.get('adminDataUrl') || config.adminDataUrl || DEFAULT_CONTENT_API_URL);
+}
 
-  return buildAbsoluteUrl(rawUrl, adminOrigin);
+function getEventsApiUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const config = getSiteConfig();
+
+  return sanitizeUrl(params.get('adminEventsUrl') || config.adminEventsUrl || DEFAULT_EVENTS_URL);
 }
 
 function getEnquiryEndpoint() {
@@ -209,10 +215,10 @@ function shouldOpenMailClientOnSubmit() {
   return Boolean(getSiteConfig().openMailClientOnSubmit);
 }
 
-function getSyncIntervalMs() {
-  const configValue = Number(getSiteConfig().syncIntervalMs);
-  if (!Number.isFinite(configValue) || configValue < 10000) {
-    return 60000;
+function getSseReconnectDelayMs() {
+  const configValue = Number(getSiteConfig().sseReconnectDelayMs);
+  if (!Number.isFinite(configValue) || configValue < 1000) {
+    return 3000;
   }
   return configValue;
 }
@@ -243,14 +249,18 @@ async function fetchJson(url, options) {
 
 function validateIntegrationConfig() {
   const config = getSiteConfig();
-  const adminUrl = getAdminApiUrl();
+  const adminUrl = getContentApiUrl();
+  const eventsUrl = getEventsApiUrl();
   const enquiryUrl = getEnquiryEndpoint();
 
   if (!config.adminDomain) {
     console.warn('Integration warning: adminDomain is not configured in site-config.js');
   }
   if (!adminUrl) {
-    console.warn('Integration warning: adminDataUrl is missing; site will fall back to bundled/static content.');
+    console.warn('Integration warning: adminDataUrl is missing; site content cannot load.');
+  }
+  if (!eventsUrl) {
+    console.warn('Integration warning: adminEventsUrl is missing; live content updates are disabled.');
   }
   if (!enquiryUrl) {
     console.warn('Integration warning: enquiryEndpoint is missing; enquiries will be queued locally.');
@@ -258,7 +268,7 @@ function validateIntegrationConfig() {
 }
 
 async function loadAdminContentFromApi() {
-  const url = getAdminApiUrl();
+  const url = getContentApiUrl();
   if (!url) return null;
 
   try {
@@ -268,25 +278,9 @@ async function loadAdminContentFromApi() {
     });
     return extractContentPayload(payload);
   } catch (error) {
-    console.warn('Unable to fetch admin content. Falling back to local data.', error);
+    console.warn('Unable to fetch admin content.', error);
     return null;
   }
-}
-
-function loadAdminContentFromStorage() {
-  const contentPayload = readStorageValue(ADMIN_CONTENT_STORAGE_KEYS);
-  const propertiesPayload = readStorageValue(ADMIN_PROPERTIES_STORAGE_KEYS);
-
-  if (!contentPayload && !propertiesPayload) return null;
-
-  const extractedContent = extractContentPayload(contentPayload) || {};
-  const extractedProperties = toArray(propertiesPayload?.properties || propertiesPayload);
-
-  if (!toArray(extractedContent.properties).length && extractedProperties.length) {
-    extractedContent.properties = extractedProperties;
-  }
-
-  return extractedContent;
 }
 
 function syncAppState() {
@@ -318,8 +312,7 @@ function setAppContent(adminContent) {
 
 async function bootstrapContent() {
   const apiContent = await loadAdminContentFromApi();
-  const storageContent = loadAdminContentFromStorage();
-  setAppContent(apiContent || storageContent || DEFAULT_CONTENT);
+  setAppContent(apiContent || DEFAULT_CONTENT);
 }
 
 function applyAdminContentUpdate(payload) {
@@ -334,46 +327,64 @@ function applyAdminContentUpdate(payload) {
   renderAll();
 }
 
-function initAdminContentSync() {
-  window.addEventListener('storage', (event) => {
-    if (!event.key) return;
-    if (!ADMIN_CONTENT_STORAGE_KEYS.includes(event.key) && !ADMIN_PROPERTIES_STORAGE_KEYS.includes(event.key)) return;
+async function refreshContent(renderAfterUpdate) {
+  if (contentRefreshPromise) {
+    await contentRefreshPromise;
+    if (renderAfterUpdate) renderAll();
+    return;
+  }
 
-    const latest = loadAdminContentFromStorage();
-    if (latest) applyAdminContentUpdate(latest);
-  });
+  contentRefreshPromise = (async () => {
+    const latest = await loadAdminContentFromApi();
+    if (latest) {
+      setAppContent(latest);
+      if (renderAfterUpdate) renderAll();
+    }
+  })();
 
-  window.addEventListener('message', (event) => {
-    if (!isAllowedAdminOrigin(event.origin)) return;
-
-    const data = event.data;
-    if (!data || typeof data !== 'object') return;
-    if (data.type !== 'GOD_LINK_SITE_CONTENT_UPDATED') return;
-
-    applyAdminContentUpdate(data.payload || data.siteContent);
-  });
-
-  if (window.BroadcastChannel) {
-    const channel = new BroadcastChannel('god-link-admin');
-    channel.addEventListener('message', (event) => {
-      const data = event.data;
-      if (!data || typeof data !== 'object') return;
-      if (data.type !== 'site-content-updated') return;
-      applyAdminContentUpdate(data.payload || data.siteContent);
-    });
+  try {
+    await contentRefreshPromise;
+  } finally {
+    contentRefreshPromise = null;
   }
 }
 
-function startAdminContentPolling() {
-  const url = getAdminApiUrl();
-  if (!url) return;
+function scheduleEventReconnect() {
+  if (eventReconnectTimer) return;
 
-  const intervalMs = getSyncIntervalMs();
-  window.setInterval(async () => {
-    const latest = await loadAdminContentFromApi();
-    if (!latest) return;
-    applyAdminContentUpdate(latest);
-  }, intervalMs);
+  eventReconnectTimer = window.setTimeout(() => {
+    eventReconnectTimer = null;
+    initAdminContentSync();
+  }, getSseReconnectDelayMs());
+}
+
+function initAdminContentSync() {
+  const url = getEventsApiUrl();
+  if (!url || typeof window.EventSource !== 'function') return;
+
+  if (eventSource) {
+    eventSource.close();
+  }
+
+  eventSource = new EventSource(url, { withCredentials: getSiteConfig().requestCredentials === 'include' });
+
+  eventSource.addEventListener('content-updated', () => {
+    refreshContent(true);
+  });
+
+  eventSource.onmessage = (event) => {
+    if ((event.data || '').trim() === 'content-updated') {
+      refreshContent(true);
+    }
+  };
+
+  eventSource.onerror = () => {
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+    scheduleEventReconnect();
+  };
 }
 
 function createCard(property) {
@@ -416,6 +427,8 @@ function renderFilters() {
   const container = document.getElementById('filter-bar');
   if (!container) return;
 
+  const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'All';
+
   const categories = getContent().propertyCategories || [
     { value: 'All', label: 'All' },
     { value: 'Residential', label: 'Residential' },
@@ -424,7 +437,7 @@ function renderFilters() {
   ];
 
   container.innerHTML = categories.map((category, index) => `
-    <button class="filter-btn ${index === 0 ? 'active' : ''}" data-filter="${category.value}">${category.label}</button>
+    <button class="filter-btn ${(activeFilter === category.value || (!activeFilter && index === 0)) ? 'active' : ''}" data-filter="${category.value}">${category.label}</button>
   `).join('') + '<span id="listing-count">0 listings</span>';
 
   document.querySelectorAll('.filter-btn').forEach((button) => {
@@ -577,12 +590,17 @@ function renderTheme() {
 function renderLogo() {
   const content = getContent();
   const brand = document.querySelector('.brand');
-  if (!brand || !content.logo?.src) return;
+  if (!brand) return;
 
-  brand.innerHTML = `
-    <img class="brand-logo" src="${content.logo.src}" alt="${content.logo.alt || content.siteName}" />
-    <span class="brand-text">${content.siteName}</span>
-  `;
+  if (content.logo?.src) {
+    brand.innerHTML = `
+      <img class="brand-logo" src="${content.logo.src}" alt="${content.logo.alt || content.siteName}" />
+      <span class="brand-text">${content.siteName || ''}</span>
+    `;
+    return;
+  }
+
+  brand.textContent = content.siteName || '';
 }
 
 function renderFooter() {
@@ -606,7 +624,7 @@ function renderPageMeta() {
   const pageKey = pathname === 'listings.html' ? 'listings' : pathname === 'contact.html' ? 'contact' : pathname === 'property.html' ? 'property' : 'home';
   const meta = content.pageMeta?.[pageKey] || {};
 
-  document.title = `${content.siteName || 'God Link Agency'}${meta.title ? ` | ${meta.title}` : ''}`;
+  document.title = meta.title || content.siteName || 'God Link Agency';
 
   let descriptionTag = document.querySelector('meta[name="description"]');
   if (!descriptionTag) {
@@ -623,8 +641,8 @@ function renderListingsPageContent() {
   const title = document.querySelector('.page-title h1');
   const description = document.querySelector('.page-title p');
 
-  if (title) title.textContent = content.pageMeta?.listings?.title || title.textContent;
-  if (description) description.textContent = content.pageMeta?.listings?.description || content.siteTagline || description.textContent;
+  if (title) title.textContent = content.pageMeta?.listings?.title || content.siteName || '';
+  if (description) description.textContent = content.pageMeta?.listings?.description || content.siteTagline || '';
 }
 
 function renderHomePageContent() {
@@ -638,10 +656,10 @@ function renderHomePageContent() {
   const statPills = document.querySelectorAll('.stat-pill');
   const reasons = document.querySelector('.feature-grid');
 
-  if (heroTitle) heroTitle.innerHTML = content.hero?.title?.replace('the right next step', '<span>the right next step</span>') || heroTitle.innerHTML;
-  if (heroDesc) heroDesc.textContent = content.hero?.description || content.siteTagline || heroDesc.textContent;
-  if (heroEyebrow) heroEyebrow.textContent = content.hero?.eyebrow || content.siteTagline || heroEyebrow.textContent;
-  if (statPills.length) statPills.forEach((pill, index) => { pill.textContent = content.hero?.stats?.[index] || pill.textContent; });
+  if (heroTitle) heroTitle.textContent = content.hero?.title || '';
+  if (heroDesc) heroDesc.textContent = content.hero?.description || content.siteTagline || '';
+  if (heroEyebrow) heroEyebrow.textContent = content.hero?.eyebrow || content.siteTagline || '';
+  if (statPills.length) statPills.forEach((pill, index) => { pill.textContent = content.hero?.stats?.[index] || ''; });
   if (reasons) {
     reasons.innerHTML = (content.reasons || []).map((item) => `
       <article class="feature-card">
@@ -652,10 +670,10 @@ function renderHomePageContent() {
     `).join('');
   }
   heroCard.innerHTML = `
-      <img src="${content.hero?.image || ''}" alt="Featured property" />
+      <img src="${content.hero?.image || ''}" alt="${content.hero?.highlightTitle || content.siteName || 'Featured property'}" />
       <div class="hero-card-body">
-        <h3>${content.hero?.highlightTitle || 'What makes us different'}</h3>
-        <p>${content.hero?.highlightCopy || 'A calm, spacious residence in East Legon with a garden, modern kitchen, and excellent security.'}</p>
+        <h3>${content.hero?.highlightTitle || ''}</h3>
+        <p>${content.hero?.highlightCopy || ''}</p>
       </div>
     `;
 }
@@ -669,9 +687,9 @@ function renderContactPageContent() {
   const heroDesc = document.querySelector('.hero-copy p');
   const heroEyebrow = document.querySelector('.eyebrow');
 
-  if (heroEyebrow) heroEyebrow.textContent = content.contact?.heading || heroEyebrow.textContent;
-  if (heroTitle) heroTitle.textContent = content.contact?.heading || heroTitle.textContent;
-  if (heroDesc) heroDesc.textContent = content.contact?.description || heroDesc.textContent;
+  if (heroEyebrow) heroEyebrow.textContent = content.contact?.heading || '';
+  if (heroTitle) heroTitle.textContent = content.contact?.heading || '';
+  if (heroDesc) heroDesc.textContent = content.contact?.description || '';
 }
 
 function initMobileMenu() {
@@ -883,7 +901,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   validateIntegrationConfig();
   await bootstrapContent();
   initAdminContentSync();
-  startAdminContentPolling();
   renderAll();
   initContactForm();
   initMobileMenu();

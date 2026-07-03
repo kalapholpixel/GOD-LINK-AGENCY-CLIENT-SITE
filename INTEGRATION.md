@@ -7,15 +7,15 @@ This client site is now ready to connect to an admin site hosted on a different 
 Completed in this client repository:
 
 - Cross-domain config support via `site-config.js`
-- API content sync on load + scheduled polling
-- Trusted-origin filtering for `postMessage` updates
+- API content sync on load + SSE-triggered refresh
 - API-first enquiry submission with offline queue fallback
 - Queue retries on page load and browser `online`
 
 Admin/API package included in this repository:
 
 - Ready-to-upload PHP API in `hostinger-admin/`
-- `GET /api/public/site-content.php`
+- `GET /api/data`
+- `GET /api/events`
 - `POST /api/public/enquiries.php`
 - Built-in CORS + optional API key support
 
@@ -25,9 +25,10 @@ Edit `site-config.js`:
 
 - `adminDomain`: admin site root domain
 - `adminDataUrl`: published listings/content endpoint
+- `adminEventsUrl`: SSE endpoint that emits `content-updated`
 - `enquiryEndpoint`: enquiry submission endpoint
-- `allowedAdminOrigins`: trusted origins for `postMessage`
 - `adminApiKey` / `adminAuthToken`: optional auth headers
+- `sseReconnectDelayMs`: delay before reconnecting EventSource after an error
 - `requestCredentials`: set `include` only if using cookie auth with CORS
 
 ## 2) Required admin API contracts
@@ -49,6 +50,17 @@ or
 ```
 
 or direct object payload.
+
+### GET content update events
+
+Endpoint: `adminEventsUrl`
+
+Expected behavior:
+
+- Server-Sent Events stream remains open.
+- Fires a `content-updated` event when content changes.
+- Client re-fetches `adminDataUrl` when that event is received.
+- Client closes and reconnects the stream after errors.
 
 ### POST enquiry submission
 
@@ -79,6 +91,8 @@ Allow methods:
 - `POST`
 - `OPTIONS`
 
+For the events endpoint, also ensure SSE responses are allowed from the client origin.
+
 Allow headers:
 
 - `Content-Type`
@@ -94,8 +108,9 @@ If using cookies, also set:
 ## 4) Runtime behavior now implemented
 
 - Client fetches content from admin API on load.
-- Client polls admin API every `syncIntervalMs`.
-- Client accepts live update events from trusted origins.
+- Client opens an EventSource connection to `adminEventsUrl`.
+- Client re-fetches content when a `content-updated` event is received.
+- Client reconnects the EventSource automatically after errors.
 - Failed enquiries are queued in localStorage key `godLinkEnquiries`.
 - Queue is retried on next load and when browser goes online.
 - Optional mail client open can be enabled with `openMailClientOnSubmit`.
@@ -126,25 +141,25 @@ Use this when deploying client and admin sites on different domains (or subdomai
   - `property.html`
   - `contact.html`
   - `app.js`
-  - `content-template.js`
   - `site-config.js`
   - `styles.css`
   - `images/`
 5. Edit `site-config.js` with your production admin URLs:
   - `adminDomain`
   - `adminDataUrl`
+  - `adminEventsUrl`
   - `enquiryEndpoint`
-  - `allowedAdminOrigins`
 
 Example:
 
 ```js
 window.siteContentConfig = {
-  adminDomain: 'https://admin.godlinkagency.com',
-  adminDataUrl: 'https://admin.godlinkagency.com/api/public/site-content.php',
-  enquiryEndpoint: 'https://admin.godlinkagency.com/api/public/enquiries.php',
-  allowedAdminOrigins: ['https://admin.godlinkagency.com'],
-  syncIntervalMs: 60000,
+  adminDomain: 'https://admin-api.godlinkproperties.com',
+  adminDataUrl: 'https://admin-api.godlinkproperties.com/api/data',
+  adminEventsUrl: 'https://admin-api.godlinkproperties.com/api/events',
+  enquiryEndpoint: 'https://admin-api.godlinkproperties.com/api/public/enquiries.php',
+  allowedAdminOrigins: ['https://admin-api.godlinkproperties.com'],
+  sseReconnectDelayMs: 3000,
   openMailClientOnSubmit: false,
   requestCredentials: 'omit',
   adminApiKey: '',
@@ -160,7 +175,8 @@ You can deploy the included API package from this repository:
 2. Ensure these files exist on admin domain:
   - `api/config.php`
   - `api/bootstrap.php`
-  - `api/public/site-content.php`
+  - `api/data`
+  - `api/events`
   - `api/public/enquiries.php`
   - `data/site-content.json`
   - `data/enquiries.json`
@@ -176,7 +192,8 @@ The admin side can also be hosted on:
 
 Required endpoints:
 
-- `GET /api/public/site-content.php`
+- `GET /api/data`
+- `GET /api/events`
 - `POST /api/public/enquiries.php`
 
 Required CORS response headers from admin API:
@@ -200,9 +217,10 @@ If using cookies/sessions across domains:
 ### E) Post-deploy verification
 
 1. Open client site and confirm listings load from API (Network tab: `site-content` request returns `200`).
-2. Submit contact form and confirm `enquiries.php` request returns `2xx`.
-3. If API is temporarily unavailable, confirm enquiry queues and retries after reconnect.
-4. Confirm browser console has no CORS errors.
+2. Confirm the EventSource connection to `/api/events` stays open and triggers a content refresh after admin saves.
+3. Submit contact form and confirm `enquiries.php` request returns `2xx`.
+4. If API is temporarily unavailable, confirm enquiry queues and retries after reconnect.
+5. Confirm browser console has no CORS errors.
 
 ### F) Cache and update notes (Hostinger)
 
