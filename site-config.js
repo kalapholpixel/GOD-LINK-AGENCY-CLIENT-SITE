@@ -1,6 +1,6 @@
 (function setupSiteConfig() {
   const adminDomain = 'https://glinkadmin.netlify.app';
-  const apiDomain = 'https://admin-api.godlinkproperties.com';
+  const apiDomain = 'https://godlinkproperties.com';
 
   window.siteContentConfig = {
     adminDomain,
@@ -9,7 +9,7 @@
 
     adminEventsUrl: `${apiDomain}/api/events`,
 
-    enquiryEndpoint: `${apiDomain}/api/public/enquiries.php`,
+    enquiryEndpoint: `${apiDomain}/api/enquiries`,
 
     adminApiKey: '',
     adminAuthToken: '',
