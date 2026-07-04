@@ -2,7 +2,7 @@
 
 return [
     // Client domain allowed to call this API.
-    'allowed_origin' => 'https://www.godlinkagency.com',
+    'allowed_origin' => 'https://godlinkproperties.com',
 
     // Optional API key. Leave empty to disable API key check.
     'api_key' => '',
