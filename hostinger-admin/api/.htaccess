@@ -1,0 +1,15 @@
+Options -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # If the requested file or directory exists, serve it directly.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Route all API requests to index.php
+  RewriteRule ^api/(.*)$ index.php [QSA,L]
+  RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
