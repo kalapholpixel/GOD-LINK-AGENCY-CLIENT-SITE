@@ -1,6 +1,6 @@
 (function setupSiteConfig() {
   const adminDomain = 'https://glinkadmin.netlify.app';
-  const apiDomain = 'https://godlinkproperties.com';
+  const apiDomain = 'https://admin-api.godlinkproperties.com';
 
   window.siteContentConfig = {
     adminDomain,
