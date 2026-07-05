@@ -1,25 +1,14 @@
 (function setupSiteConfig() {
-  const adminDomain = 'https://glinkadmin.netlify.app';
   const apiDomain = 'https://admin-api.godlinkproperties.com';
 
   window.siteContentConfig = {
-    adminDomain,
-
-    adminDataUrl: `${apiDomain}/api/data`,
-
-    adminEventsUrl: `${apiDomain}/api/events`,
-
-    enquiryEndpoint: `${apiDomain}/api/enquiries`,
-
+    adminDataUrl: `${apiDomain}/api/public/site-content.php`,
+    adminEventsUrl: '',
+    enquiryEndpoint: `${apiDomain}/api/public/enquiries.php`,
     adminApiKey: '',
     adminAuthToken: '',
-
-    allowedAdminOrigins: [adminDomain],
-
-    sseReconnectDelayMs: 3000,
-
+    requestCredentials: 'omit',
     openMailClientOnSubmit: false,
-
-    requestCredentials: 'omit'
+    sseReconnectDelayMs: 3000
   };
 })();
