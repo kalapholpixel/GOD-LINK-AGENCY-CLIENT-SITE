@@ -627,6 +627,21 @@ function renderLogo() {
   brand.textContent = content.siteName || '';
 }
 
+function renderFavicon() {
+  const content = getContent();
+  const iconHref = content.logo?.src;
+  if (!iconHref) return;
+
+  let icon = document.querySelector('link[rel="icon"]');
+  if (!icon) {
+    icon = document.createElement('link');
+    icon.setAttribute('rel', 'icon');
+    document.head.appendChild(icon);
+  }
+
+  icon.setAttribute('href', iconHref);
+}
+
 function renderFooter() {
   const content = getContent();
   const footerBrand = document.querySelector('.site-footer strong');
@@ -911,6 +926,7 @@ function renderAll() {
   renderPageMeta();
   renderTheme();
   renderLogo();
+  renderFavicon();
   renderFooter();
   renderHomePageContent();
   renderListingsPageContent();

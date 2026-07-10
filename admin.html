@@ -193,6 +193,72 @@
       $('#status').textContent = 'Unsaved changes' + suffix;
     };
 
+    async function fetchAdminCredentials(){
+      try{
+        const headers = { 'Accept':'application/json' };
+        if(ADMIN_KEY) headers['X-Admin-Key'] = ADMIN_KEY;
+        const res = await fetch(apiUrl('/api/admin/credentials'), { headers, cache:'no-store' });
+        if(!res.ok) return null;
+        return await res.json();
+      }catch(_err){
+        return null;
+      }
+    }
+
+    async function changeAdminLogin(){
+      try{
+        const profile = await fetchAdminCredentials();
+        const currentUsername = (profile && profile.username) ? profile.username : 'admin';
+        const currentPassword = window.prompt('Enter current password for ' + currentUsername + ':') || '';
+        if(!currentPassword.trim()){
+          toast('Password change cancelled.');
+          return;
+        }
+
+        const newUsername = window.prompt('Enter new username:', currentUsername) || '';
+        if(!newUsername.trim()){
+          toast('Username is required.');
+          return;
+        }
+
+        const newPassword = window.prompt('Enter new password (minimum 8 characters):') || '';
+        if(newPassword.length < 8){
+          toast('New password must be at least 8 characters.');
+          return;
+        }
+
+        const confirmPassword = window.prompt('Confirm new password:') || '';
+        if(confirmPassword !== newPassword){
+          toast('Passwords do not match.');
+          return;
+        }
+
+        const headers = { 'Content-Type':'application/json', 'Accept':'application/json' };
+        headers['X-Admin-Key'] = currentPassword;
+
+        const res = await fetch(apiUrl('/api/admin/credentials'), {
+          method:'PUT',
+          headers,
+          body: JSON.stringify({
+            currentPassword,
+            newUsername: newUsername.trim(),
+            newPassword
+          })
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if(!res.ok){
+          throw new Error(payload.error || 'Could not update login.');
+        }
+
+        ADMIN_KEY = newPassword;
+        localStorage.setItem('godlink_admin_key', ADMIN_KEY);
+        toast('Admin login updated. Use the new username and password next time you sign in.');
+      }catch(err){
+        toast(String(err && err.message || 'Failed to change admin login.'));
+      }
+    }
+
     async function verifyAdminKey(key){
       const headers = {'Content-Type':'application/json'};
       if(key) headers['X-Admin-Key'] = key;
@@ -420,6 +486,12 @@
             field('Phone','footer.phone',{placeholder:'Example: +1 555 123 4567'}),
             field('Footer note','footer.note',{placeholder:'Example: Serving the local community.'}),
             field('Credit','footer.credit',{placeholder:'Example: Built by Sunshine Realty'})
+          ])
+        ]),
+        panel('Admin access', 'Change admin username and password used to sign in to this dashboard.', [
+          el('div',{},[
+            el('p',{class:'hint',text:'This updates dashboard login credentials immediately. Keep them private and strong.'}),
+            actionButton('Change admin login', changeAdminLogin, 'danger')
           ])
         ])
       ];

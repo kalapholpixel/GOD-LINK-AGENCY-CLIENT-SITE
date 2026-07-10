@@ -7,6 +7,7 @@ const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'hostinger-admin', 'data');
 const SITE_CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
 const ENQUIRIES_FILE = path.join(DATA_DIR, 'enquiries.json');
+const ADMIN_AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
 const ADMIN_DASHBOARD_KEY = String(process.env.ADMIN_DASHBOARD_KEY || '').trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER || 'admin').trim() || 'admin';
 
@@ -95,16 +96,18 @@ function parseBasicAuthorization(headerValue) {
 }
 
 function isAdminAuthorized(req) {
+  const credentials = getAdminCredentials();
+
   // If no key is configured, authentication is disabled for local/dev convenience.
-  if (!ADMIN_DASHBOARD_KEY) return true;
+  if (!credentials.password) return true;
 
   const headerKey = String(req.headers['x-admin-key'] || '').trim();
-  if (headerKey && headerKey === ADMIN_DASHBOARD_KEY) return true;
+  if (headerKey && headerKey === credentials.password) return true;
 
   const basic = parseBasicAuthorization(req.headers.authorization);
   if (!basic) return false;
 
-  return basic.username === ADMIN_BASIC_USER && basic.password === ADMIN_DASHBOARD_KEY;
+  return basic.username === credentials.username && basic.password === credentials.password;
 }
 
 function requireAdminAuth(req, res, options) {
@@ -138,6 +141,26 @@ function readJsonFile(filePath, fallbackValue) {
   } catch (error) {
     return fallbackValue;
   }
+}
+
+function getAdminCredentials() {
+  const fallback = {
+    username: ADMIN_BASIC_USER,
+    password: ADMIN_DASHBOARD_KEY
+  };
+
+  const stored = readJsonFile(ADMIN_AUTH_FILE, fallback);
+  const username = String(stored?.username || fallback.username || 'admin').trim() || 'admin';
+  const password = String(stored?.password || fallback.password || '').trim();
+
+  return { username, password };
+}
+
+function saveAdminCredentials(credentials) {
+  writeJsonFile(ADMIN_AUTH_FILE, {
+    username: String(credentials.username || 'admin').trim() || 'admin',
+    password: String(credentials.password || '').trim()
+  });
 }
 
 function writeJsonFile(filePath, value) {
@@ -298,7 +321,9 @@ async function handleApi(req, res, url) {
   }
 
   if (method === 'POST' && pathname === '/api/auth/verify') {
-    if (!ADMIN_DASHBOARD_KEY) {
+    const credentials = getAdminCredentials();
+
+    if (!credentials.password) {
       sendJson(res, 200, { ok: true, authRequired: false });
       return true;
     }
@@ -309,6 +334,60 @@ async function handleApi(req, res, url) {
     }
 
     sendJson(res, 200, { ok: true, authRequired: true });
+    return true;
+  }
+
+  if (method === 'GET' && pathname === '/api/admin/credentials') {
+    if (!requireAdminAuth(req, res, { json: true })) {
+      return true;
+    }
+
+    const credentials = getAdminCredentials();
+    sendJson(res, 200, {
+      ok: true,
+      authEnabled: Boolean(credentials.password),
+      username: credentials.username
+    });
+    return true;
+  }
+
+  if (method === 'PUT' && pathname === '/api/admin/credentials') {
+    if (!requireAdminAuth(req, res, { json: true })) {
+      return true;
+    }
+
+    try {
+      const payload = await parseBody(req);
+      const current = getAdminCredentials();
+      const currentPassword = String(payload.currentPassword || '').trim();
+      const newUsername = String(payload.newUsername || '').trim();
+      const newPassword = String(payload.newPassword || '').trim();
+
+      if (current.password && currentPassword !== current.password) {
+        sendJson(res, 400, { ok: false, error: 'Current password is incorrect.' });
+        return true;
+      }
+
+      if (newUsername.length < 3) {
+        sendJson(res, 400, { ok: false, error: 'New username must be at least 3 characters.' });
+        return true;
+      }
+
+      if (newPassword.length < 8) {
+        sendJson(res, 400, { ok: false, error: 'New password must be at least 8 characters.' });
+        return true;
+      }
+
+      const nextCredentials = {
+        username: newUsername,
+        password: newPassword
+      };
+
+      saveAdminCredentials(nextCredentials);
+      sendJson(res, 200, { ok: true, username: nextCredentials.username, authEnabled: true });
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message || 'Failed to update admin credentials.' });
+    }
     return true;
   }
 
