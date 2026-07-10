@@ -24,8 +24,8 @@ const DEFAULT_CONTENT = window.siteContent || {
   ]
 };
 
-const DEFAULT_CONTENT_API_URL = 'https://admin-api.godlinkproperties.com/api/data';
-const DEFAULT_EVENTS_URL = 'https://admin-api.godlinkproperties.com/api/events';
+const DEFAULT_CONTENT_API_URL = '/api/public/site-content';
+const DEFAULT_EVENTS_URL = '/api/events';
 
 const ADMIN_CONTENT_STORAGE_KEYS = [
   'godLinkSiteContent',

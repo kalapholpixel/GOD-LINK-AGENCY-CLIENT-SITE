@@ -1,10 +1,11 @@
 (function setupSiteConfig() {
-  const apiDomain = 'https://admin-api.godlinkproperties.com';
+  const apiDomain = window.location.origin;
 
   window.siteContentConfig = {
-    adminDataUrl: `${apiDomain}/api/public/site-content.php`,
-    adminEventsUrl: '',
-    enquiryEndpoint: `${apiDomain}/api/public/enquiries.php`,
+    adminDomain: apiDomain,
+    adminDataUrl: `${apiDomain}/api/public/site-content`,
+    adminEventsUrl: `${apiDomain}/api/events`,
+    enquiryEndpoint: `${apiDomain}/api/public/enquiries`,
     adminApiKey: '',
     adminAuthToken: '',
     requestCredentials: 'omit',
