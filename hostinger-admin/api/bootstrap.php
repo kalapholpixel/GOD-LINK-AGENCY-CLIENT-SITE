@@ -19,7 +19,7 @@ function handle_cors(array $config): void {
         header('Access-Control-Allow-Origin: ' . $allowedOrigin);
     }
 
-    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Accept, x-api-key, Authorization');
     header('Vary: Origin');
 

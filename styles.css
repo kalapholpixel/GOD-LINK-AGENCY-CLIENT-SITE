@@ -298,6 +298,30 @@ button { font: inherit; }
 }
 .detail-card .section-title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); margin: 1rem 0 0.4rem; }
 .detail-card ul { padding-left: 1.1rem; color: var(--ink-2); }
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+}
+.property-video-wrap {
+  border: 1px solid var(--paper-3);
+  border-radius: 14px;
+  overflow: hidden;
+  background: white;
+}
+.property-video {
+  width: 100%;
+  max-height: 220px;
+  background: #111;
+  display: block;
+}
+.property-video-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+  padding: 0.55rem 0.7rem;
+}
 .checkout-card { padding: 1.2rem; }
 .checkout-card .price { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
 .checkout-card .status { margin-bottom: 1rem; }

@@ -174,11 +174,15 @@ function normalizeProperty(property, index) {
   const fallbackId = index + 1;
   const image = property?.image || toArray(property?.gallery)[0] || '';
   const features = toArray(property?.features);
+  const videos = toArray(property?.videos).filter(Boolean);
+  const video = property?.video || videos[0] || '';
 
   return {
     id: property?.id ?? fallbackId,
     image,
     gallery: toArray(property?.gallery).length ? toArray(property?.gallery) : (image ? [image] : []),
+    video,
+    videos,
     type: property?.type || 'Residential',
     title: property?.title || 'Property listing',
     location: property?.location || 'Location unavailable',
@@ -487,6 +491,7 @@ function renderPropertyPage() {
   }
 
   const gallery = selected.gallery || [selected.image];
+  const videoSources = Array.from(new Set([selected.video, ...(selected.videos || [])].filter(Boolean)));
   const slides = gallery.map((src, index) => `
     <div class="gallery-slide${index === 0 ? ' active' : ''}" data-index="${index}">
       <img src="${src}" alt="${selected.title} photo ${index + 1}" />
@@ -498,6 +503,23 @@ function renderPropertyPage() {
         <img src="${src}" alt="Thumbnail ${index + 1}" />
       </button>
   `).join('');
+
+  const videosMarkup = videoSources.length
+    ? `
+        <div class="section-title">Video tour${videoSources.length > 1 ? 's' : ''}</div>
+        <div class="video-grid">
+          ${videoSources.map((src, index) => `
+            <div class="property-video-wrap">
+              <video class="property-video" controls preload="metadata" playsinline>
+                <source src="${src}" />
+                Your browser does not support the video tag.
+              </video>
+              <span class="property-video-label">Video ${index + 1}</span>
+            </div>
+          `).join('')}
+        </div>
+      `
+    : '';
 
   container.innerHTML = `
     <div class="detail-card">
@@ -522,6 +544,7 @@ function renderPropertyPage() {
         </div>
         <div class="section-title">Highlights</div>
         <ul>${(selected.features || []).map((feature) => `<li>${feature}</li>`).join('')}</ul>
+        ${videosMarkup}
       </div>
     </div>
     <aside class="detail-card checkout-card">

@@ -8,6 +8,8 @@ $path = trim($path, '/');
 
 if ($path === 'data' || $path === 'data/') {
     require __DIR__ . '/public/site-content.php';
+} elseif (strpos($path, 'public/upload') === 0 || strpos($path, 'upload') === 0) {
+    require __DIR__ . '/public/upload.php';
 } elseif (strpos($path, 'public/enquiries') === 0 || strpos($path, 'enquiries') === 0) {
     require __DIR__ . '/public/enquiries.php';
 } else {

@@ -113,7 +113,7 @@
         <div>
           <h2 id="pageTitle">Content Editor</h2>
           <p id="pageHelp">Choose a section, make changes, then save.</p>
-          <p id="pageTip" class="hint">No coding needed: edit text fields, upload images, and save your changes.</p>
+          <p id="pageTip" class="hint">No coding needed: edit text fields, upload images and videos, then save your changes.</p>
         </div>
         <button class="ghost" id="reloadBtn">Reload</button>
       </div>
@@ -130,7 +130,7 @@
       { id:'hero', title:'Hero', help:'The main homepage headline, image, and highlight.' },
       { id:'reasons', title:'Reasons', help:'Short trust points shown on the site.' },
       { id:'categories', title:'Categories', help:'Property filters shown to visitors.' },
-      { id:'properties', title:'Properties', help:'Listings, galleries, features, and prices.' },
+      { id:'properties', title:'Properties', help:'Listings, galleries, videos, features, and prices.' },
       { id:'raw', title:'Raw JSON', help:'Advanced full-data editor.' }
     ];
     const pageKeys = ['home','listings','contact','property'];
@@ -374,17 +374,60 @@
       return wrap;
     }
 
-    function readImageFile(file){
+    function readMediaFile(file, expectedType){
       return new Promise((resolve,reject) => {
-        if(!file || !file.type.startsWith('image/')){
+        if(!file){
+          reject(new Error('Please choose a file.'));
+          return;
+        }
+        if(expectedType === 'image' && !file.type.startsWith('image/')){
           reject(new Error('Please choose an image file.'));
+          return;
+        }
+        if(expectedType === 'video' && !file.type.startsWith('video/')){
+          reject(new Error('Please choose a video file.'));
           return;
         }
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('Unable to read image file.'));
+        reader.onerror = () => reject(new Error('Unable to read file.'));
         reader.readAsDataURL(file);
       });
+    }
+
+    async function uploadMediaFile(file, expectedType){
+      const dataUrl = await readMediaFile(file, expectedType);
+      const uploadPrefix = expectedType === 'video' ? 'video/' : 'image/';
+      if(!String(file.type || '').startsWith(uploadPrefix)){
+        throw new Error(`Please choose a ${expectedType} file.`);
+      }
+
+      const match = String(dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+      if(!match) return dataUrl;
+
+      const headers = {'Content-Type':'application/json'};
+      if(ADMIN_KEY) headers['X-Admin-Key'] = ADMIN_KEY;
+
+      try{
+        const res = await fetch(apiUrl('/api/upload'), {
+          method:'POST',
+          headers,
+          body: JSON.stringify({
+            originalName: file.name,
+            mimeType: match[1],
+            base64Data: match[2]
+          })
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if(!res.ok){
+          throw new Error(payload.error || 'Upload failed.');
+        }
+
+        return payload.path || payload.url || dataUrl;
+      }catch(_err){
+        return dataUrl;
+      }
     }
 
     function imageField(label, path){
@@ -418,7 +461,7 @@
 
       const handleFile = async file => {
         try{
-          const dataUrl = await readImageFile(file);
+          const dataUrl = await uploadMediaFile(file, 'image');
           setImageValue(dataUrl);
           toast('Image loaded from your computer.');
         }catch(err){
@@ -587,11 +630,20 @@
         listField('Main image', item, 'image', {full:true,preview:'property_preview_' + index,placeholder:'Paste image URL or use upload',imageUpload:true}),
         listField('Description', item, 'desc', {type:'textarea',full:true,placeholder:'Write a short description'}),
         listField('Gallery images, one per line', item, 'gallery', {type:'textarea',as:'lines',full:true,placeholder:'One image URL per line',imageUpload:true,imageUploadMultiple:true}),
+        listField('Property video URL', item, 'video', {full:true,placeholder:'Paste video URL or upload from PC',videoUpload:true}),
+        listField('Gallery videos, one per line', item, 'videos', {type:'textarea',as:'lines',full:true,placeholder:'One video URL per line',videoUpload:true,videoUploadMultiple:true}),
         listField('Features, one per line', item, 'features', {type:'textarea',as:'lines',full:true,placeholder:'One feature per line'})
       ]));
       const preview = el('img',{class:'preview',id:'property_preview_' + index,alt:''});
       preview.src = item.image || '';
       wrap.append(preview);
+
+      const videoPreviewSrc = item.video || (Array.isArray(item.videos) ? item.videos[0] : '');
+      if(videoPreviewSrc){
+        const videoPreview = el('video',{class:'preview',controls:'',preload:'metadata'});
+        videoPreview.src = videoPreviewSrc;
+        wrap.append(videoPreview);
+      }
       return wrap;
     }
 
@@ -619,33 +671,35 @@
         markDirty();
       });
       wrap.append(input);
-      if(options.imageUpload){
+      if(options.imageUpload || options.videoUpload){
+        const mediaType = options.videoUpload ? 'video' : 'image';
         const dropzone = el('div',{class:'file-dropzone',html:'<p>Drag an image here, or click to choose from your computer.</p>'});
-        const fileInput = el('input',{type:'file',accept:'image/*'});
+        dropzone.innerHTML = `<p>Drag a ${mediaType} here, or click to choose from your computer.</p>`;
+        const fileInput = el('input',{type:'file',accept:mediaType === 'video' ? 'video/*' : 'image/*'});
         fileInput.style.display = 'none';
-        if(options.imageUploadMultiple) fileInput.multiple = true;
-        const chooseButton = el('button',{type:'button',class:'secondary',text:options.imageUploadMultiple ? 'Select gallery images from PC' : 'Select image from PC'});
+        if(options.imageUploadMultiple || options.videoUploadMultiple) fileInput.multiple = true;
+        const chooseButton = el('button',{type:'button',class:'secondary',text:(options.imageUploadMultiple || options.videoUploadMultiple) ? `Select gallery ${mediaType}s from PC` : `Select ${mediaType} from PC`});
         chooseButton.addEventListener('click', () => fileInput.click());
 
         const setFromFiles = async files => {
           if(!files || !files.length) return;
           try{
-            const dataUrls = await Promise.all(Array.from(files).map(readImageFile));
+            const dataUrls = await Promise.all(Array.from(files).map(file => uploadMediaFile(file, mediaType)));
             if(options.as === 'lines'){
               const current = Array.isArray(obj[key]) ? obj[key] : lines(input.value);
               const merged = [...current, ...dataUrls];
               obj[key] = merged;
               input.value = merged.join('\n');
-              toast(dataUrls.length + ' image(s) added to gallery.');
+              toast(dataUrls.length + ` ${mediaType}(s) added to gallery.`);
             }else{
               obj[key] = dataUrls[0] || '';
               input.value = obj[key];
               if(options.preview) updatePreview(options.preview,obj[key]);
-              toast('Image loaded from your computer.');
+              toast(mediaType === 'video' ? 'Video loaded from your computer.' : 'Image loaded from your computer.');
             }
             markDirty();
           }catch(err){
-            toast(err.message || 'Could not upload image.');
+            toast(err.message || `Could not upload ${mediaType}.`);
           }
         };
 
@@ -663,9 +717,10 @@
         });
         fileInput.addEventListener('change', () => setFromFiles(fileInput.files));
 
-        const uploadHint = options.imageUploadMultiple
-          ? 'Upload multiple gallery images at once, or paste URLs one per line.'
-          : 'Upload a local image or paste an image URL.';
+        const isMultiple = options.imageUploadMultiple || options.videoUploadMultiple;
+        const uploadHint = isMultiple
+          ? `Upload multiple gallery ${mediaType}s at once, or paste URLs one per line.`
+          : `Upload a local ${mediaType} or paste a ${mediaType} URL.`;
         wrap.append(dropzone, chooseButton, fileInput, el('p',{class:'hint',text:uploadHint}));
       }
       return wrap;
@@ -732,7 +787,7 @@
         hero: renderHero,
         reasons: () => renderList('Reasons to choose the agency','Add short cards that build trust.','reasons',reasonItem,'No reasons yet.',() => ({icon:'',title:'',description:''})),
         categories: () => renderList('Property categories','Visitors can filter listings by these values.','propertyCategories',categoryItem,'No categories yet.',() => ({value:'New category',label:'New category'})),
-        properties: () => renderList('Property listings','Each listing can have a gallery and feature list.','properties',propertyItem,'No properties yet.',() => ({id:nextPropertyId(),image:'',gallery:[],type:'Residential',title:'New property',location:'',price:'',status:'Available',beds:null,baths:null,area:'',parking:'',desc:'',features:[]})),
+        properties: () => renderList('Property listings','Each listing can have galleries, video tours, and feature lists.','properties',propertyItem,'No properties yet.',() => ({id:nextPropertyId(),image:'',gallery:[],video:'',videos:[],type:'Residential',title:'New property',location:'',price:'',status:'Available',beds:null,baths:null,area:'',parking:'',desc:'',features:[]})),
         raw: renderRaw
       };
       views[state.active]().forEach(node => content.append(node));
@@ -796,19 +851,30 @@
       try{
         const headers = {'Content-Type':'application/json'};
         if(ADMIN_KEY) headers['X-Admin-Key'] = ADMIN_KEY;
-        const res = await fetch(apiUrl('/save'), {
-          method:'POST',
-          headers,
-          body:JSON.stringify(state.data)
-        });
-        let payload = null;
-        try{
-          payload = await res.json();
-        }catch(_err){
-          payload = null;
+
+        const saveTargets = [
+          { url:apiUrl('/save'), method:'POST', body:state.data },
+          { url:apiUrl('/api/data'), method:'PUT', body:{ siteContent: state.data } },
+          { url:apiUrl('/api/site-content'), method:'PUT', body:{ siteContent: state.data } }
+        ];
+
+        let successPayload = null;
+        let saved = false;
+        for(const target of saveTargets){
+          const res = await fetch(target.url, {
+            method:target.method,
+            headers,
+            body:JSON.stringify(target.body)
+          });
+          const payload = await res.json().catch(() => null);
+          if(res.ok){
+            successPayload = payload;
+            saved = true;
+            break;
+          }
         }
-        if(!res.ok) throw new Error((payload && payload.error) || 'Save failed');
-        const savedVersion = payload && payload.version ? ` (version ${payload.version})` : '';
+        if(!saved) throw new Error('Save failed');
+        const savedVersion = successPayload && successPayload.version ? ` (version ${successPayload.version})` : '';
         $('#status').textContent = `Saved just now${savedVersion}`;
         toast('Saved to data/data.json');
       }catch(err){

@@ -5,6 +5,7 @@ const path = require('path');
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'hostinger-admin', 'data');
+const UPLOADS_DIR = path.join(ROOT, 'images', 'uploads');
 const SITE_CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
 const ENQUIRIES_FILE = path.join(DATA_DIR, 'enquiries.json');
 const ADMIN_AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
@@ -27,6 +28,28 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
   '.php': 'text/plain; charset=utf-8'
+};
+
+const ALLOWED_UPLOAD_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime'
+]);
+
+const MIME_EXTENSION_MAP = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/gif': '.gif',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/ogg': '.ogv',
+  'video/quicktime': '.mov'
 };
 
 function isPathInsideRoot(targetPath) {
@@ -168,14 +191,14 @@ function writeJsonFile(filePath, value) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2) + '\n', 'utf8');
 }
 
-function parseBody(req) {
+function parseBody(req, maxBytes = 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let total = 0;
 
     req.on('data', (chunk) => {
       total += chunk.length;
-      if (total > 1024 * 1024) {
+      if (total > maxBytes) {
         reject(new Error('Payload too large'));
         req.destroy();
         return;
@@ -199,6 +222,54 @@ function parseBody(req) {
 
     req.on('error', reject);
   });
+}
+
+function sanitizeUploadBaseName(input) {
+  const normalized = String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return normalized || 'media';
+}
+
+function saveUploadedMedia(payload) {
+  const mimeType = String(payload.mimeType || '').trim().toLowerCase();
+  const base64Data = String(payload.base64Data || '').trim();
+  const originalName = String(payload.originalName || '').trim();
+
+  if (!ALLOWED_UPLOAD_MIME.has(mimeType)) {
+    throw new Error('Unsupported file type. Upload JPG, PNG, WEBP, GIF, MP4, WEBM, OGV, or MOV.');
+  }
+
+  if (!base64Data) {
+    throw new Error('Missing media data.');
+  }
+
+  const extension = MIME_EXTENSION_MAP[mimeType] || path.extname(originalName).toLowerCase() || '';
+  if (!extension) {
+    throw new Error('Could not determine a file extension for the upload.');
+  }
+
+  const bytes = Buffer.from(base64Data, 'base64');
+  if (!bytes.length) {
+    throw new Error('Uploaded media is empty.');
+  }
+
+  if (bytes.length > 80 * 1024 * 1024) {
+    throw new Error('File is too large. Maximum upload size is 80MB.');
+  }
+
+  const baseName = sanitizeUploadBaseName(path.basename(originalName, path.extname(originalName)));
+  const fileName = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}-${baseName}${extension}`;
+
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  const targetPath = path.join(UPLOADS_DIR, fileName);
+  fs.writeFileSync(targetPath, bytes);
+
+  return `images/uploads/${fileName}`;
 }
 
 function getSiteContent() {
@@ -334,6 +405,21 @@ async function handleApi(req, res, url) {
     }
 
     sendJson(res, 200, { ok: true, authRequired: true });
+    return true;
+  }
+
+  if (method === 'POST' && pathname === '/api/upload') {
+    if (!requireAdminAuth(req, res, { json: true })) {
+      return true;
+    }
+
+    try {
+      const payload = await parseBody(req, 120 * 1024 * 1024);
+      const mediaPath = saveUploadedMedia(payload || {});
+      sendJson(res, 201, { ok: true, path: mediaPath, url: `/${mediaPath}` });
+    } catch (error) {
+      sendJson(res, 400, { ok: false, error: error.message || 'Upload failed.' });
+    }
     return true;
   }
 
