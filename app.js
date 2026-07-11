@@ -170,12 +170,22 @@ function toArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function normalizeMediaList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    return value.split('\n').map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 function normalizeProperty(property, index) {
   const fallbackId = index + 1;
   const image = property?.image || toArray(property?.gallery)[0] || '';
   const features = toArray(property?.features);
-  const videos = toArray(property?.videos).filter(Boolean);
-  const video = property?.video || videos[0] || '';
+  const videos = normalizeMediaList(property?.videos);
+  const video = String(property?.video || property?.videoUrl || property?.videoSrc || videos[0] || '').trim();
 
   return {
     id: property?.id ?? fallbackId,
@@ -416,6 +426,7 @@ function initAdminContentSync() {
 }
 
 function createCard(property) {
+  const hasVideo = Boolean(property.video || (property.videos && property.videos.length));
   return `
     <article class="listing-card">
       <div class="thumb">
@@ -423,6 +434,7 @@ function createCard(property) {
       </div>
       <div class="body">
         <div class="tag">${property.type}</div>
+        ${hasVideo ? '<div class="media-flag">Video tour</div>' : ''}
         <div class="price">${property.price}</div>
         <div class="title">${property.title}</div>
         <div class="meta">${property.location}</div>

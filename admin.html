@@ -407,27 +407,31 @@
 
       const headers = {'Content-Type':'application/json'};
       if(ADMIN_KEY) headers['X-Admin-Key'] = ADMIN_KEY;
+      const uploadTargets = [apiUrl('/api/upload'), apiUrl('/api/public/upload.php')];
 
       try{
-        const res = await fetch(apiUrl('/api/upload'), {
-          method:'POST',
-          headers,
-          body: JSON.stringify({
-            originalName: file.name,
-            mimeType: match[1],
-            base64Data: match[2]
-          })
-        });
-
-        const payload = await res.json().catch(() => ({}));
-        if(!res.ok){
-          throw new Error(payload.error || 'Upload failed.');
+        for(const target of uploadTargets){
+          const res = await fetch(target, {
+            method:'POST',
+            headers,
+            body: JSON.stringify({
+              originalName: file.name,
+              mimeType: match[1],
+              base64Data: match[2]
+            })
+          });
+          const payload = await res.json().catch(() => ({}));
+          if(res.ok){
+            return payload.path || payload.url || dataUrl;
+          }
         }
-
-        return payload.path || payload.url || dataUrl;
       }catch(_err){
-        return dataUrl;
       }
+
+      if(expectedType === 'video'){
+        throw new Error('Video upload failed. Please check API endpoint/auth and try again.');
+      }
+      return dataUrl;
     }
 
     function imageField(label, path){
