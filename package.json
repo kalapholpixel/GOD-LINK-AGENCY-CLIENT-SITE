@@ -13,6 +13,7 @@
     "media:cleanup:apply": "node scripts/media-cleanup.js --apply --older-than-days=30"
   },
   "dependencies": {
+    "nodemailer": "^9.0.3",
     "sharp": "^0.35.3"
   }
 }

@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 let sharp = null;
 try {
@@ -15,9 +16,17 @@ const DATA_DIR = path.join(ROOT, 'hostinger-admin', 'data');
 const UPLOADS_DIR = path.join(ROOT, 'images', 'uploads');
 const SITE_CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
 const ENQUIRIES_FILE = path.join(DATA_DIR, 'enquiries.json');
+const ENQUIRY_EMAIL_FAILURES_FILE = path.join(DATA_DIR, 'enquiry-email-failures.json');
 const ADMIN_AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
 const ADMIN_DASHBOARD_KEY = String(process.env.ADMIN_DASHBOARD_KEY || '').trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER || 'admin').trim() || 'admin';
+const ENQUIRY_ALERT_TO = String(process.env.ENQUIRY_ALERT_TO || 'godlinkagency@gmail.com').trim();
+const SMTP_HOST = String(process.env.SMTP_HOST || '').trim();
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
+const SMTP_SECURE = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true';
+const SMTP_USER = String(process.env.SMTP_USER || '').trim();
+const SMTP_PASS = String(process.env.SMTP_PASS || '').trim();
+const SMTP_FROM = String(process.env.SMTP_FROM || SMTP_USER || ENQUIRY_ALERT_TO).trim();
 
 const sseClients = new Set();
 
@@ -64,6 +73,84 @@ const MIME_EXTENSION_MAP = {
   'video/ogg': '.ogv',
   'video/quicktime': '.mov'
 };
+
+let smtpTransporter = null;
+
+function getSmtpTransporter() {
+  if (smtpTransporter) return smtpTransporter;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS || !SMTP_FROM || !ENQUIRY_ALERT_TO) {
+    return null;
+  }
+
+  smtpTransporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS
+    }
+  });
+
+  return smtpTransporter;
+}
+
+function appendFailedEmailRecord(record) {
+  const payload = readJsonFile(ENQUIRY_EMAIL_FAILURES_FILE, { failures: [] });
+  if (!Array.isArray(payload.failures)) payload.failures = [];
+  payload.failures.push(record);
+  writeJsonFile(ENQUIRY_EMAIL_FAILURES_FILE, payload);
+}
+
+function formatEnquiryEmail(enquiry) {
+  const subject = `New property enquiry from ${String(enquiry.name || 'Unknown')}`;
+  const lines = [
+    'A new enquiry was submitted on the website.',
+    '',
+    `Name: ${String(enquiry.name || '')}`,
+    `Phone: ${String(enquiry.phone || '')}`,
+    `Email: ${String(enquiry.email || '')}`,
+    `Page: ${String(enquiry.page || '')}`,
+    `Submitted: ${String(enquiry.createdAt || enquiry.receivedAt || '')}`,
+    `Received: ${String(enquiry.receivedAt || '')}`,
+    '',
+    'Message:',
+    String(enquiry.message || '')
+  ];
+
+  return {
+    subject,
+    text: lines.join('\n')
+  };
+}
+
+async function sendEnquiryEmail(enquiry) {
+  const transporter = getSmtpTransporter();
+  if (!transporter) {
+    return { attempted: false, sent: false, reason: 'smtp-not-configured' };
+  }
+
+  const { subject, text } = formatEnquiryEmail(enquiry);
+
+  try {
+    await transporter.sendMail({
+      from: SMTP_FROM,
+      to: ENQUIRY_ALERT_TO,
+      replyTo: String(enquiry.email || '').trim() || undefined,
+      subject,
+      text
+    });
+    return { attempted: true, sent: true };
+  } catch (error) {
+    appendFailedEmailRecord({
+      enquiryId: enquiry.id,
+      createdAt: new Date().toISOString(),
+      error: String(error?.message || 'Email send failed'),
+      enquiry
+    });
+    return { attempted: true, sent: false, reason: 'smtp-send-failed' };
+  }
+}
 
 function isPathInsideRoot(targetPath) {
   const normalizedRoot = path.resolve(ROOT) + path.sep;
@@ -555,8 +642,9 @@ async function handleApi(req, res, url) {
       const existing = getEnquiries();
       existing.enquiries.push(enquiry);
       writeJsonFile(ENQUIRIES_FILE, existing);
+      const emailStatus = await sendEnquiryEmail(enquiry);
 
-      sendJson(res, 201, { ok: true, enquiry });
+      sendJson(res, 201, { ok: true, enquiry, email: emailStatus });
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to save enquiry.' });
     }
