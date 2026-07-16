@@ -135,6 +135,23 @@
     ];
     const pageKeys = ['home','listings','contact','property'];
     const themeKeys = ['ink','ink2','paper','paper2','paper3','primary','primarySoft','success','successSoft','danger','dangerSoft','background','overlay','overlayLight','shadow'];
+    const themeHints = {
+      ink:'Main text and dark buttons.',
+      ink2:'Secondary text and muted labels.',
+      paper:'Primary light surface color.',
+      paper2:'Soft gradient/surface tint.',
+      paper3:'Borders and separators.',
+      primary:'Main accent color (highlights).',
+      primarySoft:'Soft accent background.',
+      success:'Positive and available states.',
+      successSoft:'Soft positive background.',
+      danger:'Error, sold, or warning emphasis.',
+      dangerSoft:'Soft danger background.',
+      background:'Overall page background.',
+      overlay:'Sticky header translucent layer.',
+      overlayLight:'Light overlays on controls.',
+      shadow:'Card and button shadow depth.'
+    };
     const state = { data:null, active:'basics', rawValid:true, canSave:true, authChecked:false };
     const runtimeConfig = window.GODLINK_ADMIN_CONFIG || {};
     const query = new URLSearchParams(window.location.search);
@@ -558,7 +575,7 @@
         el('div',{class:'grid three'}, themeKeys.map(key => {
           const value = getPath(state.data,'theme.' + key) || '';
           const isColor = /^#[0-9a-f]{6}$/i.test(value);
-          return field(key,'theme.' + key,{type:isColor ? 'color' : 'text'});
+          return field(key,'theme.' + key,{type:isColor ? 'color' : 'text',hint:themeHints[key] || ''});
         }))
       ])];
     }
