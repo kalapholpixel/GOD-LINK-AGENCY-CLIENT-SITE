@@ -26,6 +26,7 @@ const DEFAULT_CONTENT = window.siteContent || {
 
 const DEFAULT_CONTENT_API_URL = '/api/public/site-content';
 const DEFAULT_EVENTS_URL = '/api/events';
+const FALLBACK_IMAGE_DATA_URI = "data:image/svg+xml," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 675'><rect width='1200' height='675' fill='#efe8d8'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Segoe UI, Arial, sans-serif' font-size='40' fill='#57534e'>Image unavailable</text></svg>");
 
 const ADMIN_CONTENT_STORAGE_KEYS = [
   'godLinkSiteContent',
@@ -65,6 +66,7 @@ const state = {
 let contentRefreshPromise = null;
 let eventSource = null;
 let eventReconnectTimer = null;
+const mediaPreloadCache = new Set();
 
 function getSiteConfig() {
   return {
@@ -75,6 +77,30 @@ function getSiteConfig() {
 
 function sanitizeUrl(url) {
   return typeof url === 'string' ? url.trim() : '';
+}
+
+function normalizeMediaUrl(url) {
+  const clean = sanitizeUrl(url);
+  if (!clean) return '';
+
+  if (clean.startsWith('data:') || clean.startsWith('blob:')) {
+    return clean;
+  }
+
+  if (/^https?:\/\//i.test(clean)) {
+    return encodeURI(clean);
+  }
+
+  // Preserve relative-path semantics while safely encoding spaces and symbols.
+  return encodeURI(clean.replace(/^\.\//, ''));
+}
+
+function escapeAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function buildAbsoluteUrl(url, fallbackBase) {
@@ -182,15 +208,16 @@ function normalizeMediaList(value) {
 
 function normalizeProperty(property, index) {
   const fallbackId = index + 1;
-  const image = property?.image || toArray(property?.gallery)[0] || '';
+  const rawGallery = toArray(property?.gallery).map((item) => normalizeMediaUrl(item)).filter(Boolean);
+  const image = normalizeMediaUrl(property?.image || rawGallery[0] || '');
   const features = toArray(property?.features);
-  const videos = normalizeMediaList(property?.videos);
-  const video = String(property?.video || property?.videoUrl || property?.videoSrc || videos[0] || '').trim();
+  const videos = normalizeMediaList(property?.videos).map((item) => normalizeMediaUrl(item)).filter(Boolean);
+  const video = normalizeMediaUrl(property?.video || property?.videoUrl || property?.videoSrc || videos[0] || '');
 
   return {
     id: property?.id ?? fallbackId,
     image,
-    gallery: toArray(property?.gallery).length ? toArray(property?.gallery) : (image ? [image] : []),
+    gallery: rawGallery.length ? rawGallery : (image ? [image] : []),
     video,
     videos,
     type: property?.type || 'Residential',
@@ -427,10 +454,12 @@ function initAdminContentSync() {
 
 function createCard(property) {
   const hasVideo = Boolean(property.video || (property.videos && property.videos.length));
+  const imageCandidates = [property.image, ...(property.gallery || [])].map((item) => normalizeMediaUrl(item)).filter(Boolean);
+  const primaryImage = imageCandidates[0] || FALLBACK_IMAGE_DATA_URI;
   return `
     <article class="listing-card">
       <div class="thumb">
-        <img src="${property.image}" alt="${property.title}" loading="lazy" />
+        <img src="${primaryImage}" alt="${property.title}" loading="lazy" data-media-fallback="${escapeAttribute(JSON.stringify(imageCandidates.slice(1)))}" />
       </div>
       <div class="body">
         <div class="tag">${property.type}</div>
@@ -502,17 +531,18 @@ function renderPropertyPage() {
     return;
   }
 
-  const gallery = selected.gallery || [selected.image];
-  const videoSources = Array.from(new Set([selected.video, ...(selected.videos || [])].filter(Boolean)));
+  const gallery = Array.from(new Set([selected.image, ...(selected.gallery || [])].map((item) => normalizeMediaUrl(item)).filter(Boolean)));
+  const videoSources = Array.from(new Set([selected.video, ...(selected.videos || [])].map((item) => normalizeMediaUrl(item)).filter(Boolean)));
+  preloadPropertyMedia(gallery, videoSources);
   const slides = gallery.map((src, index) => `
     <div class="gallery-slide${index === 0 ? ' active' : ''}" data-index="${index}">
-      <img src="${src}" alt="${selected.title} photo ${index + 1}" />
+      <img src="${src}" alt="${selected.title} photo ${index + 1}" loading="eager" data-media-fallback="${escapeAttribute(JSON.stringify(gallery.filter((_, i) => i !== index)))}" />
     </div>
   `).join('');
 
   const thumbnails = gallery.map((src, index) => `
       <button class="gallery-thumb${index === 0 ? ' active' : ''}" data-index="${index}" aria-label="View photo ${index + 1}">
-        <img src="${src}" alt="Thumbnail ${index + 1}" />
+        <img src="${src}" alt="Thumbnail ${index + 1}" loading="lazy" data-media-fallback="${escapeAttribute(JSON.stringify(gallery.filter((_, i) => i !== index)))}" />
       </button>
   `).join('');
 
@@ -567,6 +597,104 @@ function renderPropertyPage() {
   `;
 
   initGallery();
+  initMediaResilience();
+}
+
+function parseFallbackList(raw) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed.map((item) => normalizeMediaUrl(item)).filter(Boolean) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function preloadImage(url) {
+  const src = normalizeMediaUrl(url);
+  if (!src || mediaPreloadCache.has(`img:${src}`)) return;
+
+  mediaPreloadCache.add(`img:${src}`);
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = src;
+}
+
+function preloadVideoMetadata(url) {
+  const src = normalizeMediaUrl(url);
+  if (!src || mediaPreloadCache.has(`video:${src}`)) return;
+
+  mediaPreloadCache.add(`video:${src}`);
+  const video = document.createElement('video');
+  video.preload = 'metadata';
+  video.muted = true;
+  video.playsInline = true;
+  video.src = src;
+  video.load();
+}
+
+function preloadPropertyMedia(gallery, videoSources) {
+  const firstImage = Array.isArray(gallery) ? gallery[0] : '';
+  const secondImage = Array.isArray(gallery) ? gallery[1] : '';
+  const firstVideo = Array.isArray(videoSources) ? videoSources[0] : '';
+
+  preloadImage(firstImage);
+  preloadImage(secondImage);
+  preloadVideoMetadata(firstVideo);
+}
+
+function initMediaResilience() {
+  document.querySelectorAll('img[data-media-fallback]').forEach((img) => {
+    if (img.dataset.fallbackBound === '1') return;
+    img.dataset.fallbackBound = '1';
+
+    img.addEventListener('error', () => {
+      const candidates = parseFallbackList(img.dataset.mediaFallback);
+      if (candidates.length) {
+        const next = candidates.shift();
+        img.dataset.mediaFallback = JSON.stringify(candidates);
+        img.src = next;
+        return;
+      }
+      if (img.src !== FALLBACK_IMAGE_DATA_URI) {
+        img.src = FALLBACK_IMAGE_DATA_URI;
+      }
+    });
+  });
+
+  document.querySelectorAll('.property-video').forEach((video) => {
+    if (video.dataset.fallbackBound === '1') return;
+    video.dataset.fallbackBound = '1';
+
+    const source = video.querySelector('source');
+    if (!source) return;
+    const current = normalizeMediaUrl(source.getAttribute('src') || '');
+    const siblings = Array.from(document.querySelectorAll('.property-video source'))
+      .map((item) => normalizeMediaUrl(item.getAttribute('src') || ''))
+      .filter(Boolean)
+      .filter((item) => item !== current);
+
+    video.dataset.videoFallback = JSON.stringify(siblings);
+    video.addEventListener('error', () => {
+      const nextSources = parseFallbackList(video.dataset.videoFallback);
+      if (!nextSources.length) {
+        video.controls = false;
+        video.style.display = 'none';
+        const wrap = video.closest('.property-video-wrap');
+        if (wrap && !wrap.querySelector('.property-video-label-error')) {
+          const note = document.createElement('span');
+          note.className = 'property-video-label property-video-label-error';
+          note.textContent = 'Video currently unavailable.';
+          wrap.appendChild(note);
+        }
+        return;
+      }
+
+      const next = nextSources.shift();
+      video.dataset.videoFallback = JSON.stringify(nextSources);
+      source.setAttribute('src', next);
+      video.load();
+    });
+  });
 }
 
 function initGallery() {
@@ -970,6 +1098,7 @@ function renderAll() {
   renderFilters();
   renderListings();
   renderPropertyPage();
+  initMediaResilience();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
