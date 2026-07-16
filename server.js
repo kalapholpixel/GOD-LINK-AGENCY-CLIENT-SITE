@@ -2,6 +2,13 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (error) {
+  sharp = null;
+}
+
 const PORT = Number(process.env.PORT) || 3000;
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'hostinger-admin', 'data');
@@ -39,6 +46,12 @@ const ALLOWED_UPLOAD_MIME = new Set([
   'video/webm',
   'video/ogg',
   'video/quicktime'
+]);
+
+const OPTIMIZABLE_IMAGE_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp'
 ]);
 
 const MIME_EXTENSION_MAP = {
@@ -235,7 +248,32 @@ function sanitizeUploadBaseName(input) {
   return normalized || 'media';
 }
 
-function saveUploadedMedia(payload) {
+async function optimizeImageBuffer(bytes, mimeType) {
+  if (!sharp || !OPTIMIZABLE_IMAGE_MIME.has(mimeType)) {
+    return { buffer: bytes, optimized: false };
+  }
+
+  const pipeline = sharp(bytes, { failOn: 'none' }).rotate().resize({
+    width: 2200,
+    height: 2200,
+    fit: 'inside',
+    withoutEnlargement: true
+  });
+
+  if (mimeType === 'image/jpeg') {
+    return { buffer: await pipeline.jpeg({ quality: 82, mozjpeg: true }).toBuffer(), optimized: true };
+  }
+  if (mimeType === 'image/png') {
+    return { buffer: await pipeline.png({ compressionLevel: 9, progressive: true }).toBuffer(), optimized: true };
+  }
+  if (mimeType === 'image/webp') {
+    return { buffer: await pipeline.webp({ quality: 82 }).toBuffer(), optimized: true };
+  }
+
+  return { buffer: bytes, optimized: false };
+}
+
+async function saveUploadedMedia(payload) {
   const mimeType = String(payload.mimeType || '').trim().toLowerCase();
   const base64Data = String(payload.base64Data || '').trim();
   const originalName = String(payload.originalName || '').trim();
@@ -264,12 +302,17 @@ function saveUploadedMedia(payload) {
 
   const baseName = sanitizeUploadBaseName(path.basename(originalName, path.extname(originalName)));
   const fileName = `${Date.now()}-${Math.random().toString(16).slice(2, 10)}-${baseName}${extension}`;
+  const optimizedAsset = await optimizeImageBuffer(bytes, mimeType);
 
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
   const targetPath = path.join(UPLOADS_DIR, fileName);
-  fs.writeFileSync(targetPath, bytes);
+  fs.writeFileSync(targetPath, optimizedAsset.buffer);
 
-  return `images/uploads/${fileName}`;
+  return {
+    path: `images/uploads/${fileName}`,
+    optimized: optimizedAsset.optimized,
+    bytesSaved: bytes.length - optimizedAsset.buffer.length
+  };
 }
 
 function getSiteContent() {
@@ -415,8 +458,14 @@ async function handleApi(req, res, url) {
 
     try {
       const payload = await parseBody(req, 120 * 1024 * 1024);
-      const mediaPath = saveUploadedMedia(payload || {});
-      sendJson(res, 201, { ok: true, path: mediaPath, url: `/${mediaPath}` });
+      const result = await saveUploadedMedia(payload || {});
+      sendJson(res, 201, {
+        ok: true,
+        path: result.path,
+        url: `/${result.path}`,
+        optimized: result.optimized,
+        bytesSaved: result.bytesSaved
+      });
     } catch (error) {
       sendJson(res, 400, { ok: false, error: error.message || 'Upload failed.' });
     }

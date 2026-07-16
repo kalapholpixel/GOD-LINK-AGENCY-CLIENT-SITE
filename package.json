@@ -7,6 +7,12 @@
     "build": "echo 'Static site: no build step required'",
     "start": "node server.js",
     "scripts": "npm run",
-    "dev": "python3 -m http.server 3001"
+    "dev": "python3 -m http.server 3001",
+    "media:audit": "node scripts/media-audit.js",
+    "media:cleanup": "node scripts/media-cleanup.js --dry-run",
+    "media:cleanup:apply": "node scripts/media-cleanup.js --apply --older-than-days=30"
+  },
+  "dependencies": {
+    "sharp": "^0.35.3"
   }
 }
