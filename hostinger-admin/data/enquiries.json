@@ -1,3 +1,14 @@
 {
-  "enquiries": []
+  "enquiries": [
+    {
+      "name": "Test User",
+      "phone": "+233 24 000 0000",
+      "email": "test@example.com",
+      "message": "I would like to book a viewing for Test 3-bedroom apartment.",
+      "createdAt": "2026-07-16T14:49:52.553Z",
+      "page": "http://localhost:3000/contact.html",
+      "id": "1784213392748-6ab46c28f68ca8",
+      "receivedAt": "2026-07-16T14:49:52.751Z"
+    }
+  ]
 }

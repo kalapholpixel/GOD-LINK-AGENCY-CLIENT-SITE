@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . '/../bootstrap.php';
+require_once __DIR__ . '/../bootstrap.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $filePath = (string) get_config_value($config, 'site_content_file', '');

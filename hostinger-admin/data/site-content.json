@@ -1,6 +1,6 @@
 {
   "siteName": "God Link Agency",
-  "siteTagline": "Premium property sales across Ghana",
+  "siteTagline": "Premium property sales across Ghana - Tested Local",
   "pageMeta": {
     "home": {
       "title": "Premium Property Sales",
@@ -44,7 +44,11 @@
     "eyebrow": "Premium real estate in Ghana",
     "title": "Find a home, office, or land investment that feels like the right next step.",
     "description": "We curate premium properties with a focus on location, quality, and long-term value so buying or investing feels calm and confident.",
-    "stats": ["8+ active listings", "3 property types", "5+ years of trust"],
+    "stats": [
+      "8+ active listings",
+      "3 property types",
+      "5+ years of trust"
+    ],
     "image": "images/WhatsApp Image 2026-06-27 at 11.49.13 AM (2).jpeg",
     "highlightTitle": "Featured viewing this week",
     "highlightCopy": "A calm, spacious residence in East Legon with a garden, modern kitchen, and excellent security."
@@ -77,12 +81,30 @@
     "credit": "Created by KL STUDIOS"
   },
   "propertyCategories": [
-    { "value": "All", "label": "All" },
-    { "value": "Residential", "label": "Residential" },
-    { "value": "Commercial", "label": "Commercial" },
-    { "value": "Land", "label": "Land" },
-    { "value": "Luxury", "label": "Luxury" },
-    { "value": "Shortlet", "label": "Shortlet" }
+    {
+      "value": "All",
+      "label": "All"
+    },
+    {
+      "value": "Residential",
+      "label": "Residential"
+    },
+    {
+      "value": "Commercial",
+      "label": "Commercial"
+    },
+    {
+      "value": "Land",
+      "label": "Land"
+    },
+    {
+      "value": "Luxury",
+      "label": "Luxury"
+    },
+    {
+      "value": "Shortlet",
+      "label": "Shortlet"
+    }
   ],
   "properties": [
     {
@@ -102,7 +124,7 @@
         "images/WhatsApp Image 2026-06-27 at 11.49.16 AM (2).jpeg"
       ],
       "type": "Residential",
-      "title": "3-bedroom apartment",
+      "title": "Test 3-bedroom apartment",
       "location": "Airport",
       "price": "$2,000/mo",
       "status": "Available",
@@ -111,7 +133,12 @@
       "area": "",
       "parking": "",
       "desc": "A polished apartment in a gated estate with a garden, modern kitchen, and security throughout.",
-      "features": ["Gated community", "24/7 security", "Backup generator", "Solar-ready"]
+      "features": [
+        "Gated community",
+        "24/7 security",
+        "Backup generator",
+        "Solar-ready"
+      ]
     },
     {
       "id": 2,
@@ -131,7 +158,12 @@
       "area": "320 sqm",
       "parking": "10 cars",
       "desc": "A premium office floor with fibre, conference rooms, and immediate access to the city's business hub.",
-      "features": ["Fibre internet", "Conference room", "Reception", "CCTV"]
+      "features": [
+        "Fibre internet",
+        "Conference room",
+        "Reception",
+        "CCTV"
+      ]
     },
     {
       "id": 3,
@@ -151,7 +183,12 @@
       "area": "0.5 acre",
       "parking": null,
       "desc": "A titled plot in a fast-developing community, perfect for a modern residence or investment.",
-      "features": ["Titled land", "Road access", "Water connection", "Ready documentation"]
+      "features": [
+        "Titled land",
+        "Road access",
+        "Water connection",
+        "Ready documentation"
+      ]
     },
     {
       "id": 4,
@@ -171,7 +208,12 @@
       "area": "105 sqm",
       "parking": "1 car",
       "desc": "A refined apartment with built-in wardrobes, a private balcony, and a calm residential setting.",
-      "features": ["Private balcony", "Gym", "Swimming pool", "Concierge"]
+      "features": [
+        "Private balcony",
+        "Gym",
+        "Swimming pool",
+        "Concierge"
+      ]
     },
     {
       "id": 5,
@@ -191,7 +233,12 @@
       "area": "75 sqm",
       "parking": "2 cars",
       "desc": "High footfall retail space in Osu with a glass frontage and excellent visibility.",
-      "features": ["High visibility", "Storage room", "Air conditioning", "Signage ready"]
+      "features": [
+        "High visibility",
+        "Storage room",
+        "Air conditioning",
+        "Signage ready"
+      ]
     },
     {
       "id": 6,
@@ -211,7 +258,12 @@
       "area": "2 acres",
       "parking": null,
       "desc": "A productive parcel of land ideal for agribusiness, farming, or future development.",
-      "features": ["Fertile soil", "Stream access", "Road access", "Investment potential"]
+      "features": [
+        "Fertile soil",
+        "Stream access",
+        "Road access",
+        "Investment potential"
+      ]
     }
   ]
 }

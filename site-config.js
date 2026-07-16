@@ -1,5 +1,6 @@
 (function setupSiteConfig() {
-  const apiDomain = 'https://godlinkproperties.com';
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const apiDomain = isLocal ? window.location.origin : 'https://godlinkproperties.com';
 
   window.siteContentConfig = {
     adminDomain: `${apiDomain}`,
