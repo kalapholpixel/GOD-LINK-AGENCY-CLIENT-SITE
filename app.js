@@ -79,6 +79,81 @@ function sanitizeUrl(url) {
   return typeof url === 'string' ? url.trim() : '';
 }
 
+function resolveOriginFromCandidates(candidates) {
+  for (const candidate of candidates) {
+    const safe = sanitizeUrl(candidate);
+    if (!safe) continue;
+    try {
+      return new URL(safe, window.location.origin).origin;
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return '';
+}
+
+function resolveUrlFromCandidates(candidates) {
+  for (const candidate of candidates) {
+    const safe = sanitizeUrl(candidate);
+    if (!safe) continue;
+    try {
+      return new URL(safe, window.location.origin);
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function joinPathSegments(...parts) {
+  const clean = parts
+    .map((part) => String(part || '').trim())
+    .filter(Boolean)
+    .map((part, index) => {
+      if (index === 0) return part.replace(/\/+$/g, '');
+      return part.replace(/^\/+|\/+$/g, '');
+    })
+    .filter(Boolean)
+    .join('/');
+
+  return clean.startsWith('/') ? clean : `/${clean}`;
+}
+
+function getAdminRuntimeUrl() {
+  const config = getSiteConfig();
+  const params = new URLSearchParams(window.location.search);
+
+  return resolveUrlFromCandidates([
+    params.get('adminDataUrl'),
+    config.adminDataUrl,
+    params.get('adminDomain'),
+    config.adminDomain
+  ]);
+}
+
+function getAdminBasePath() {
+  const adminUrl = getAdminRuntimeUrl();
+  if (!adminUrl) return '';
+
+  const pathname = adminUrl.pathname || '/';
+  const apiIndex = pathname.indexOf('/api');
+
+  if (apiIndex >= 0) {
+    const prefix = pathname.slice(0, apiIndex).replace(/\/+$/g, '');
+    return prefix === '/' ? '' : prefix;
+  }
+
+  const trimmed = pathname.replace(/\/+$/g, '');
+  return trimmed === '/' ? '' : trimmed;
+}
+
+function getMediaAssetOrigin() {
+  const adminUrl = getAdminRuntimeUrl();
+  return adminUrl ? adminUrl.origin : '';
+}
+
 function normalizeMediaUrl(url) {
   const clean = sanitizeUrl(url);
   if (!clean) return '';
@@ -88,11 +163,49 @@ function normalizeMediaUrl(url) {
   }
 
   if (/^https?:\/\//i.test(clean)) {
-    return encodeURI(clean);
+    try {
+      const absolute = new URL(clean);
+      const basePath = getAdminBasePath();
+      const mediaOrigin = getMediaAssetOrigin();
+
+      // Repair legacy absolute upload URLs that point to root /images/uploads
+      // when admin is hosted under a subpath such as /admin.
+      if (
+        mediaOrigin
+        && absolute.origin === mediaOrigin
+        && absolute.pathname.startsWith('/images/uploads/')
+        && basePath
+        && !absolute.pathname.startsWith(`${basePath}/images/uploads/`)
+      ) {
+        absolute.pathname = joinPathSegments(basePath, absolute.pathname);
+      }
+
+      return absolute.toString();
+    } catch (error) {
+      return encodeURI(clean);
+    }
   }
 
   // Preserve relative-path semantics while safely encoding spaces and symbols.
-  return encodeURI(clean.replace(/^\.\//, ''));
+  const normalizedPath = clean.replace(/^\.\//, '').replace(/^\/+/, '');
+  const encodedPath = encodeURI(normalizedPath);
+
+  // Uploaded media paths are stored as images/uploads/... and should resolve to admin API origin.
+  if (encodedPath.startsWith('images/uploads/')) {
+    const mediaOrigin = getMediaAssetOrigin();
+    if (mediaOrigin) {
+      const basePath = getAdminBasePath();
+      try {
+        const target = new URL(mediaOrigin);
+        target.pathname = joinPathSegments(basePath, encodedPath);
+        return target.toString();
+      } catch (error) {
+        return joinPathSegments(basePath, encodedPath);
+      }
+    }
+  }
+
+  return encodedPath;
 }
 
 function escapeAttribute(value) {
@@ -118,14 +231,14 @@ function buildAbsoluteUrl(url, fallbackBase) {
 
 function getAdminOrigin() {
   const config = getSiteConfig();
-  const adminDomain = sanitizeUrl(config.adminDomain);
-  if (!adminDomain) return '';
+  const params = new URLSearchParams(window.location.search);
 
-  try {
-    return new URL(adminDomain).origin;
-  } catch (error) {
-    return '';
-  }
+  return resolveOriginFromCandidates([
+    params.get('adminDomain'),
+    config.adminDomain,
+    params.get('adminDataUrl'),
+    config.adminDataUrl
+  ]);
 }
 
 function getAllowedAdminOrigins() {
