@@ -127,12 +127,14 @@ function formatEnquiryEmail(enquiry) {
 async function sendEnquiryEmail(enquiry) {
   const transporter = getSmtpTransporter();
   if (!transporter) {
+    console.log(`[ENQUIRY EMAIL] SKIPPED: SMTP not configured for enquiry ${enquiry.id}`);
     return { attempted: false, sent: false, reason: 'smtp-not-configured' };
   }
 
   const { subject, text } = formatEnquiryEmail(enquiry);
 
   try {
+    console.log(`[ENQUIRY EMAIL] Attempting to send email for enquiry ${enquiry.id} to ${ENQUIRY_ALERT_TO}`);
     await transporter.sendMail({
       from: SMTP_FROM,
       to: ENQUIRY_ALERT_TO,
@@ -140,8 +142,10 @@ async function sendEnquiryEmail(enquiry) {
       subject,
       text
     });
+    console.log(`[ENQUIRY EMAIL] SUCCESS: Email sent for enquiry ${enquiry.id}`);
     return { attempted: true, sent: true };
   } catch (error) {
+    console.error(`[ENQUIRY EMAIL] FAILED: Error sending email for enquiry ${enquiry.id}:`, error.message);
     appendFailedEmailRecord({
       enquiryId: enquiry.id,
       createdAt: new Date().toISOString(),
@@ -648,6 +652,38 @@ async function handleApi(req, res, url) {
     } catch (error) {
       sendJson(res, 400, { error: error.message || 'Unable to save enquiry.' });
     }
+    return true;
+  }
+
+  if (
+    method === 'GET' && pathname === '/api/admin/email-diagnostics'
+  ) {
+    if (!requireAdminAuth(req, res, { json: true })) {
+      return true;
+    }
+
+    const failures = readJsonFile(ENQUIRY_EMAIL_FAILURES_FILE, { failures: [] });
+    const enquiries = getEnquiries();
+    
+    const smtpConfig = {
+      configured: !!SMTP_HOST && !!SMTP_USER && !!SMTP_PASS,
+      host: SMTP_HOST || '(not set)',
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
+      user: SMTP_USER ? SMTP_USER.replace(/(.{2})(.*)(.{2})/, '$1***$3') : '(not set)',
+      from: SMTP_FROM || '(not set)',
+      alertTo: ENQUIRY_ALERT_TO
+    };
+
+    sendJson(res, 200, {
+      ok: true,
+      smtp: smtpConfig,
+      stats: {
+        totalEnquiries: enquiries.enquiries ? enquiries.enquiries.length : 0,
+        failedEmailAttempts: failures.failures ? failures.failures.length : 0
+      },
+      recentFailures: failures.failures ? failures.failures.slice(-5) : []
+    });
     return true;
   }
 
