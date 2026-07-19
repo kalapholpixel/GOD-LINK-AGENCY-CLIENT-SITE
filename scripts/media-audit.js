@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SITE_CONTENT_FILE = path.join(ROOT, 'hostinger-admin', 'data', 'site-content.json');
+const SITE_CONTENT_FILE = path.join(ROOT, 'hostinger-admin', 'data', 'data.json');
 const UPLOADS_DIR = path.join(ROOT, 'images', 'uploads');
 const MEDIA_PATTERN = /\.(png|jpe?g|webp|gif|svg|mp4|webm|ogv|mov)(\?.*)?(#.*)?$/i;
 

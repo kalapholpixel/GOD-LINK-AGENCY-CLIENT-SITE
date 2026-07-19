@@ -8,7 +8,7 @@ return [
     'api_key' => '',
 
     // Storage files (JSON).
-    'site_content_file' => __DIR__ . '/../data/site-content.json',
+    'site_content_file' => __DIR__ . '/../data/data.json',
     'enquiries_file' => __DIR__ . '/../data/enquiries.json',
     'uploads_dir' => __DIR__ . '/../images/uploads',
 
