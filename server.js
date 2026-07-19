@@ -43,7 +43,11 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
-  '.php': 'text/plain; charset=utf-8'
+  '.php': 'text/plain; charset=utf-8',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogv': 'video/ogg',
+  '.mov': 'video/quicktime'
 };
 
 const ALLOWED_UPLOAD_MIME = new Set([
@@ -174,9 +178,9 @@ function resolveRequestedPath(urlPathname) {
   return fullPath;
 }
 
-function sendFile(res, filePath) {
-  fs.readFile(filePath, (error, data) => {
-    if (error) {
+function sendFile(res, filePath, req) {
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
       res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Not Found');
       return;
@@ -184,12 +188,61 @@ function sendFile(res, filePath) {
 
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const totalSize = stats.size;
+    const range = req ? req.headers.range : null;
 
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      'Cache-Control': 'no-cache'
-    });
-    res.end(data);
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const startPart = parts[0];
+      const endPart = parts[1];
+
+      const start = parseInt(startPart, 10);
+      const end = endPart ? parseInt(endPart, 10) : totalSize - 1;
+
+      if (isNaN(start) || start < 0 || start >= totalSize || end < start || end >= totalSize) {
+        res.writeHead(416, {
+          'Content-Range': `bytes */${totalSize}`,
+          'Content-Type': 'text/plain'
+        });
+        res.end('Requested Range Not Satisfiable');
+        return;
+      }
+
+      const chunkSize = (end - start) + 1;
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunkSize,
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache'
+      });
+
+      const stream = fs.createReadStream(filePath, { start, end });
+      stream.on('error', (streamErr) => {
+        console.error('Stream read error:', streamErr);
+        if (!res.headersSent) {
+          res.writeHead(500);
+          res.end('Internal server error');
+        }
+      });
+      stream.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': totalSize,
+        'Content-Type': contentType,
+        'Cache-Control': 'no-cache'
+      });
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (streamErr) => {
+        console.error('Stream read error:', streamErr);
+        if (!res.headersSent) {
+          res.writeHead(500);
+          res.end('Internal server error');
+        }
+      });
+      stream.pipe(res);
+    }
   });
 }
 
@@ -700,11 +753,11 @@ const server = http.createServer((req, res) => {
       if (!requireAdminAuth(req, res)) {
         return;
       }
-      sendFile(res, path.join(ROOT, 'admin.html'));
+      sendFile(res, path.join(ROOT, 'admin.html'), req);
       return;
     }
 
-  const requested = resolveRequestedPath(url.pathname);
+    const requested = resolveRequestedPath(url.pathname);
 
     if (!requested) {
       res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -714,18 +767,18 @@ const server = http.createServer((req, res) => {
 
     fs.stat(requested, (err, stats) => {
       if (!err && stats.isFile()) {
-        sendFile(res, requested);
+        sendFile(res, requested, req);
         return;
       }
 
       if (!err && stats.isDirectory()) {
         const indexPath = path.join(requested, 'index.html');
-        sendFile(res, indexPath);
+        sendFile(res, indexPath, req);
         return;
       }
 
       // Fallback to homepage for unknown routes.
-      sendFile(res, path.join(ROOT, 'index.html'));
+      sendFile(res, path.join(ROOT, 'index.html'), req);
     });
   }).catch((error) => {
     res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
