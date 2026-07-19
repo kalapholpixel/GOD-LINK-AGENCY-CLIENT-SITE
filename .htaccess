@@ -1,6 +1,22 @@
 Options -MultiViews
 DirectoryIndex index.html
 
+# Define correct MIME types for video formats
+AddType video/mp4 .mp4
+AddType video/webm .webm
+AddType video/ogg .ogv
+AddType video/quicktime .mov
+
+# Disable compression for video files (gzip compression breaks Range Requests on Safari/iOS)
+<IfModule mod_deflate.c>
+  SetEnvIfNoCase Request_URI \.(?:mp4|webm|ogv|mov)$ no-gzip dont-vary
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Explicitly tell Safari we support byte-range requests
+  Header set Accept-Ranges bytes
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
