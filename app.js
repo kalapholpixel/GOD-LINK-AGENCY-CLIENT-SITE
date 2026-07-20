@@ -403,7 +403,13 @@ function getSseReconnectDelayMs() {
 
 async function fetchJson(url, options) {
   const config = getSiteConfig();
-  const response = await fetch(url, {
+  let targetUrl = url;
+  const method = (options && options.method || 'GET').toUpperCase();
+  if (method === 'GET') {
+    const buster = `t=${Date.now()}`;
+    targetUrl = url.includes('?') ? `${url}&${buster}` : `${url}?${buster}`;
+  }
+  const response = await fetch(targetUrl, {
     cache: 'no-store',
     credentials: config.requestCredentials || 'omit',
     ...(options || {})

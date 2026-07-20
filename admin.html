@@ -828,7 +828,8 @@
         let loadedFrom = '';
         for(const candidate of candidates){
           try{
-            const res = await fetch(candidate.url, { cache:'no-store' });
+            const busterUrl = candidate.url.includes('?') ? `${candidate.url}&t=${Date.now()}` : `${candidate.url}?t=${Date.now()}`;
+            const res = await fetch(busterUrl, { cache:'no-store' });
             if(!res.ok){
               errors.push(`${candidate.path}: ${res.status}`);
               continue;
